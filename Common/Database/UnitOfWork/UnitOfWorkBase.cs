@@ -1,6 +1,7 @@
 using Common.Database.Interfaces;
 using Common.Database.Repositories.Generic;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Common.Database.UnitOfWork;
 
@@ -9,6 +10,8 @@ public interface IUnitOfWorkBase
     DbContext DbContext { get; }
 
     IGenericRepository<T> GetRepository<T>() where T : class, IEntity;
+
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default);
 
     Task SaveChangesAsync(CancellationToken ct = default);
 }
@@ -36,6 +39,11 @@ public abstract class UnitOfWorkBase : IUnitOfWorkBase
         }
 
         return (IGenericRepository<T>)repository;
+    }
+
+    public virtual Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default)
+    {
+        return DbContext.Database.BeginTransactionAsync(ct);
     }
 
     protected TRepository GetRepository<TEntity, TRepository>(Func<DbSet<TEntity>, TRepository> factory)

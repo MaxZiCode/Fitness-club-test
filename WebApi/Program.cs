@@ -8,6 +8,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using ServiceLayer.Enrollments;
+using ServiceLayer.Idempotency;
+using ServiceLayer.Shared;
 using StackExchange.Redis;
 using WebApi.Auth;
 using WebApi.Middleware;
@@ -38,6 +42,9 @@ builder.Services.AddSingleton<ICacheService>(provider =>
     new RedisCacheService(provider.GetRequiredService<IConnectionMultiplexer>(), TimeSpan.FromMinutes(5)));
 
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddSingleton<IDateTimeService, DateTimeService>();
+builder.Services.AddSingleton<IIdempotencyKeyHasher, IdempotencyKeyHasher>();
+builder.Services.AddScoped<ICreateEnrollmentService, CreateEnrollmentService>();
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;
 

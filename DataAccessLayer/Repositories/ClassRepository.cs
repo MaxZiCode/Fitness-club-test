@@ -11,10 +11,13 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
     {
     }
 
-    public async Task<Class?> GetWithEnrollmentsAsync(long id, CancellationToken ct = default)
+    public async Task<Class?> GetLockedNoTrackingIgnoringFiltersWithEnrollmentsAsync(long id, CancellationToken ct = default)
     {
         return await _dbSet
+            .FromSqlInterpolated($"SELECT * FROM classes WHERE id = {id} FOR NO KEY UPDATE")
+            .IgnoreQueryFilters()
+            .AsNoTracking()
             .Include(x => x.Enrollments)
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
+            .FirstOrDefaultAsync(ct);
     }
 }

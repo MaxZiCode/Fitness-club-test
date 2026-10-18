@@ -84,6 +84,11 @@ namespace DataAccessLayer.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("IdempotencyKeyHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("idempotency_key_hash");
+
                     b.Property<int>("Seats")
                         .HasColumnType("integer")
                         .HasColumnName("seats");
@@ -101,7 +106,9 @@ namespace DataAccessLayer.Migrations
 
                     b.HasIndex("ClassId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "IdempotencyKeyHash")
+                        .IsUnique()
+                        .HasFilter("idempotency_key_hash IS NOT NULL");
 
                     b.ToTable("enrollments", (string)null);
                 });

@@ -14,6 +14,8 @@ public class Enrollment : IEntity
 
     public string Status { get; set; } = null!;
 
+    public string? IdempotencyKeyHash { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? CancelledAt { get; set; }

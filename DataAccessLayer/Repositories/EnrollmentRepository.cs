@@ -17,4 +17,15 @@ public class EnrollmentRepository : GenericRepository<Enrollment>, IEnrollmentRe
             .Where(x => x.UserId == userId)
             .ToListAsync(ct);
     }
+
+    public async Task<Enrollment?> GetByUserAndIdempotencyKeyHashAsync(
+        long userId,
+        string idempotencyKeyHash,
+        CancellationToken ct = default)
+    {
+        return await _dbSet
+            .FirstOrDefaultAsync(
+                x => x.UserId == userId && x.IdempotencyKeyHash == idempotencyKeyHash,
+                ct);
+    }
 }

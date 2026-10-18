@@ -17,8 +17,15 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         builder.Property(x => x.ClassId).HasColumnName("class_id");
         builder.Property(x => x.Seats).HasColumnName("seats");
         builder.Property(x => x.Status).HasColumnName("status").IsRequired();
+        builder.Property(x => x.IdempotencyKeyHash)
+            .HasColumnName("idempotency_key_hash")
+            .HasMaxLength(64);
         builder.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone");
         builder.Property(x => x.CancelledAt).HasColumnName("cancelled_at").HasColumnType("timestamp with time zone");
+
+        builder.HasIndex(x => new { x.UserId, x.IdempotencyKeyHash })
+            .IsUnique()
+            .HasFilter("idempotency_key_hash IS NOT NULL");
 
         builder
             .HasOne<User>()
