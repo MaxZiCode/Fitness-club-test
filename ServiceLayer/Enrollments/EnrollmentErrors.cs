@@ -9,5 +9,6 @@ public static class EnrollmentErrors
         public const string PassExpired = "pass-expired";
         public const string ClassStarted = "class-started";
         public const string ClassCancelled = "class-cancelled";
+        public const string EnrollmentCancelled = "enrollment-cancelled";
     }
 }

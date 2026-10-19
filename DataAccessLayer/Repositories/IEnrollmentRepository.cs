@@ -12,6 +12,8 @@ public interface IEnrollmentRepository : IGenericRepository<Enrollment>
         long userId,
         CancellationToken ct = default);
 
+    void UpdateSeats(long id, int seats);
+
     Task<Enrollment?> GetByUserAndIdempotencyKeyHashAsync(
         long userId,
         string idempotencyKeyHash,

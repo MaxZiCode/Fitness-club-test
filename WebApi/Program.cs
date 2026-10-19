@@ -71,7 +71,9 @@ builder.Services.AddSingleton<IDateTimeService, DateTimeService>();
 builder.Services.AddSingleton<IIdempotencyKeyHasher, IdempotencyKeyHasher>();
 builder.Services.AddScoped<IPassValidationService, PassValidationService>();
 builder.Services.AddScoped<IClassValidationService, ClassValidationService>();
+builder.Services.AddScoped<IEnrollmentValidationService, EnrollmentValidationService>();
 builder.Services.AddScoped<ICreateEnrollmentService, CreateEnrollmentService>();
+builder.Services.AddScoped<IUpdateEnrollmentSeatsService, UpdateEnrollmentSeatsService>();
 builder.Services.Configure<EnrollmentCardCacheOptions>(
     builder.Configuration.GetSection("EnrollmentCardCache"));
 builder.Services.AddScoped<IEnrollmentCardCacheService, EnrollmentCardCacheService>();

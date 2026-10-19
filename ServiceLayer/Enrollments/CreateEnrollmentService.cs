@@ -38,11 +38,16 @@ public sealed class CreateEnrollmentService(
         if (passValidationResult.IsError)
             return passValidationResult.Errors;
 
-        var classResult = await classValidationService.ValidateAsync(
+        var @class = await unitOfWork.Class.GetLockedNoTrackingIgnoringFiltersWithEnrollmentsAsync(
             command.ClassId,
-            command.Seats,
-            now,
             ct);
+        if (@class is null)
+            return Error.NotFound();
+
+        var classResult = classValidationService.Validate(
+            @class,
+            command.Seats,
+            now);
         if (classResult.IsError)
             return classResult.Errors;
 
