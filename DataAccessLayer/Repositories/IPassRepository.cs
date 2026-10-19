@@ -5,7 +5,7 @@ namespace DataAccessLayer.Repositories;
 
 public interface IPassRepository : IGenericRepository<Pass>
 {
-    Task<Pass?> GetByUserAsync(long userId, CancellationToken ct = default);
+    Task<Pass> GetByUserNoTrackingAsync(long userId, CancellationToken ct = default);
 
-    Task<Pass?> GetLockedByUserAsync(long id, CancellationToken ct = default);
+    Task<Pass> GetLockedByUserAsync(long userId, CancellationToken ct = default);
 }

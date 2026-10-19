@@ -69,7 +69,13 @@ builder.Services.AddSingleton<ICacheService>(provider =>
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<IDateTimeService, DateTimeService>();
 builder.Services.AddSingleton<IIdempotencyKeyHasher, IdempotencyKeyHasher>();
+builder.Services.AddScoped<IPassValidationService, PassValidationService>();
+builder.Services.AddScoped<IClassValidationService, ClassValidationService>();
 builder.Services.AddScoped<ICreateEnrollmentService, CreateEnrollmentService>();
+builder.Services.Configure<EnrollmentCardCacheOptions>(
+    builder.Configuration.GetSection("EnrollmentCardCache"));
+builder.Services.AddScoped<IEnrollmentCardCacheService, EnrollmentCardCacheService>();
+builder.Services.AddScoped<IEnrollmentCardService, EnrollmentCardService>();
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;
 

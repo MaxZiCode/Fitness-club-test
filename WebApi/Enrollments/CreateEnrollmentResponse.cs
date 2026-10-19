@@ -1,4 +1,4 @@
-using DataAccessLayer.Entities;
+using ServiceLayer.Enrollments;
 
 namespace WebApi.Enrollments;
 
@@ -9,6 +9,6 @@ public sealed record CreateEnrollmentResponse(
     string Status,
     DateTime CreatedAt)
 {
-    public static CreateEnrollmentResponse FromEnrollment(Enrollment enrollment) =>
-        new(enrollment.Id, enrollment.ClassId, enrollment.Seats, enrollment.Status, enrollment.CreatedAt);
+    public static CreateEnrollmentResponse FromResult(CreateEnrollmentResult result) =>
+        new(result.Id, result.ClassId, result.Seats, result.Status, result.CreatedAt);
 }

@@ -18,6 +18,18 @@ public class EnrollmentRepository : GenericRepository<Enrollment>, IEnrollmentRe
             .ToListAsync(ct);
     }
 
+    public async Task<Enrollment?> GetByIdAndUserWithClassAndRoomNoTrackingAsync(
+        long id,
+        long userId,
+        CancellationToken ct = default)
+    {
+        return await _dbSet
+            .AsNoTracking()
+            .Include(x => x.Class)
+            .ThenInclude(x => x.Room)
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
+    }
+
     public async Task<Enrollment?> GetByUserAndIdempotencyKeyHashAsync(
         long userId,
         string idempotencyKeyHash,

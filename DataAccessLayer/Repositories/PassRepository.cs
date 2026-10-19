@@ -11,15 +11,29 @@ public class PassRepository : GenericRepository<Pass>, IPassRepository
     {
     }
 
-    public async Task<Pass?> GetByUserAsync(long userId, CancellationToken ct = default)
+    public Task<Pass> GetByUserNoTrackingAsync(long userId, CancellationToken ct = default)
     {
-        return await _dbSet.FirstOrDefaultAsync(x => x.UserId == userId, ct);
+        var query = _dbSet
+            .AsNoTracking()
+            .Where(x => x.UserId == userId);
+
+        return GetRequiredPassAsync(query, userId, ct);
     }
 
-    public async Task<Pass?> GetLockedByUserAsync(long userId, CancellationToken ct = default)
+    public Task<Pass> GetLockedByUserAsync(long userId, CancellationToken ct = default)
     {
-        return await _dbSet
-            .FromSqlInterpolated($"SELECT * FROM passes WHERE user_id = {userId} FOR NO KEY UPDATE")
-            .FirstOrDefaultAsync(ct);
+        var query = _dbSet
+            .FromSqlInterpolated($"SELECT * FROM passes WHERE user_id = {userId} FOR NO KEY UPDATE");
+
+        return GetRequiredPassAsync(query, userId, ct);
+    }
+
+    private static async Task<Pass> GetRequiredPassAsync(
+        IQueryable<Pass> query,
+        long userId,
+        CancellationToken ct)
+    {
+        return await query.FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException($"No pass found for user {userId}.");
     }
 }
