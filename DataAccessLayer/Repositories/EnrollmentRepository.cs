@@ -30,14 +30,6 @@ public class EnrollmentRepository : GenericRepository<Enrollment>, IEnrollmentRe
             .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
     }
 
-    public void UpdateSeats(long id, int seats)
-    {
-        var enrollment = new Enrollment { Id = id };
-        var entry = _dbSet.Attach(enrollment);
-        entry.Property(x => x.Seats).CurrentValue = seats;
-        entry.Property(x => x.Seats).IsModified = true;
-    }
-
     public async Task<Enrollment?> GetByUserAndIdempotencyKeyHashAsync(
         long userId,
         string idempotencyKeyHash,

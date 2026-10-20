@@ -13,7 +13,8 @@ namespace WebApi.Controllers;
 public class EnrollmentsController(
     ICreateEnrollmentService createEnrollmentService,
     IEnrollmentCardService enrollmentCardService,
-    IUpdateEnrollmentSeatsService updateEnrollmentSeatsService) : BaseApiController
+    IUpdateEnrollmentSeatsService updateEnrollmentSeatsService,
+    ICancelEnrollmentService cancelEnrollmentService) : BaseApiController
 {
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetCardAsync(long id, CancellationToken cancellationToken)
@@ -51,5 +52,14 @@ public class EnrollmentsController(
 
         return await updateEnrollmentSeatsService.UpdateSeatsAsync(command, cancellationToken)
             .Match(card => Ok(EnrollmentCardResponse.FromCard(card)), HandleErrors);
+    }
+
+    [HttpPost("{id:long}/cancel")]
+    public async Task<IActionResult> CancelAsync(long id, CancellationToken cancellationToken)
+    {
+        var command = new CancelEnrollmentCommand(id, CurrentUserId);
+
+        return await cancelEnrollmentService.CancelEnrollmentAsync(command, cancellationToken)
+            .Match(result => Ok(CancelEnrollmentResponse.FromResult(result)), HandleErrors);
     }
 }

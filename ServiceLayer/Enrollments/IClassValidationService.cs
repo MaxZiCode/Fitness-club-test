@@ -5,6 +5,7 @@ public interface IClassValidationService
 {
     ErrorOr<Success> Validate(
         DataAccessLayer.Entities.Class @class,
+        int bookedSeats,
         int seatsDiff,
         DateTime now);
 }

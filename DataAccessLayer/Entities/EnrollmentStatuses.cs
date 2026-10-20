@@ -1,4 +1,4 @@
-namespace ServiceLayer.Enrollments;
+namespace DataAccessLayer.Entities;
 
 public static class EnrollmentStatuses
 {

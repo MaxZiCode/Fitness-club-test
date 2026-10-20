@@ -19,21 +19,25 @@ public sealed class UpdateEnrollmentSeatsService(
         await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
 
         var pass = await unitOfWork.Pass.GetLockedByUserAsync(command.UserId, ct);
-        var @class = await unitOfWork.Class
-            .GetLockedNoTrackingIgnoringFiltersByEnrollmentAndUserWithEnrollmentsAsync(
+        var classWithEnrollmentAndBookedSeats = await unitOfWork.Class
+            .GetLockedClassWithEnrollmentAndBookedSeatsByEnrollmentAndUserIgnoringFiltersAsync(
                 command.EnrollmentId,
                 command.UserId,
                 ct);
-        if (@class is null)
+        if (classWithEnrollmentAndBookedSeats is null)
             return Error.NotFound();
 
-        var enrollment = @class.Enrollments.First(x =>
-            x.Id == command.EnrollmentId && x.UserId == command.UserId);
+        var @class = classWithEnrollmentAndBookedSeats.Class;
+        var enrollment = classWithEnrollmentAndBookedSeats.Enrollment;
         enrollment.Class = @class;
 
         var now = dateTimeService.GetNow();
         var difference = command.Seats - enrollment.Seats;
-        var classValidationResult = classValidationService.Validate(@class, difference, now);
+        var classValidationResult = classValidationService.Validate(
+            @class,
+            classWithEnrollmentAndBookedSeats.BookedSeats,
+            difference,
+            now);
         if (classValidationResult.IsError)
             return classValidationResult.Errors;
 
@@ -54,7 +58,6 @@ public sealed class UpdateEnrollmentSeatsService(
             pass.RemainingVisits -= difference;
 
             enrollment.Seats = command.Seats;
-            unitOfWork.Enrollment.UpdateSeats(enrollment.Id, command.Seats);
             await unitOfWork.SaveChangesAsync(ct);
         }
 

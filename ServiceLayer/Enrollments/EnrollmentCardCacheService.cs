@@ -15,8 +15,9 @@ public sealed class EnrollmentCardCacheService(
         Func<CancellationToken, Task<EnrollmentCard?>> loadCardAsync,
         CancellationToken ct = default)
     {
-        var version = await GetUserVersionAsync(userId, ct);
-        var cacheKey = GetCardKey(userId, enrollmentId, version);
+        var (userVersion, enrollmentVersion) = await GetVersionsAsync(userId, enrollmentId, ct);
+        var cacheKey = GetCardKey(userId, userVersion, enrollmentId, enrollmentVersion);
+
         var cachedCard = await cacheService.GetAsync<EnrollmentCard>(cacheKey, ct);
         if (cachedCard is not null)
             return cachedCard;
@@ -28,34 +29,40 @@ public sealed class EnrollmentCardCacheService(
         return card;
     }
 
-    public Task InvalidateEnrollmentsForUserAsync(long userId, CancellationToken ct = default) =>
-        cacheService.SetAsync(
-            GetUserVersionKey(userId),
-            CreateVersion(),
-            _options.UserVersionTtl,
-            ct);
-
-    private async Task<string> GetUserVersionAsync(long userId, CancellationToken ct)
+    public async Task InvalidateEnrollmentsForUserAsync(long userId, CancellationToken ct = default)
     {
-        var versionKey = GetUserVersionKey(userId);
-        var version = await cacheService.GetAsync<string>(versionKey, ct);
-        if (version is not null)
-            return version;
-
-        version = CreateVersion();
-        await cacheService.SetAsync(
-            versionKey,
-            version,
-            _options.UserVersionTtl,
-            ct);
-
-        return version;
+        await cacheService.IncrementAsync(GetUserVersionKey(userId), ct);
     }
 
-    private static string GetUserVersionKey(long userId) => $"user-version:{userId}";
+    public async Task InvalidateEnrollmentForUserAsync(
+        long userId,
+        long enrollmentId,
+        CancellationToken ct = default)
+    {
+        await cacheService.IncrementAsync(GetEnrollmentVersionKey(userId, enrollmentId), ct);
+    }
 
-    private static string GetCardKey(long userId, long enrollmentId, string userVersion) =>
-        $"enrollment-card:{userId}:{enrollmentId}:{userVersion}";
+    private static string GetCardKey(
+        long userId,
+        long userVersion,
+        long enrollmentId,
+        long enrollmentVersion) =>
+        $"enrollment-card:{userId}:{userVersion}:{enrollmentId}:{enrollmentVersion}";
 
-    private static string CreateVersion() => Guid.NewGuid().ToString("N");
+    private static string GetUserVersionKey(long userId) => $"enrollment-card-user-version:{userId}";
+
+    private static string GetEnrollmentVersionKey(long userId, long enrollmentId) =>
+        $"enrollment-card-enrollment-version:{userId}:{enrollmentId}";
+
+    private async Task<(long UserVersion, long EnrollmentVersion)> GetVersionsAsync(
+        long userId,
+        long enrollmentId,
+        CancellationToken ct)
+    {
+        var versions = await cacheService.GetManyAsync<long>(
+            [GetUserVersionKey(userId), GetEnrollmentVersionKey(userId, enrollmentId)],
+            ct);
+
+        return (versions[0], versions[1]);
+    }
 }

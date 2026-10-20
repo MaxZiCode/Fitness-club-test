@@ -89,6 +89,10 @@ namespace DataAccessLayer.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("idempotency_key_hash");
 
+                    b.Property<int>("RefundedVisits")
+                        .HasColumnType("integer")
+                        .HasColumnName("refunded_visits");
+
                     b.Property<int>("Seats")
                         .HasColumnType("integer")
                         .HasColumnName("seats");

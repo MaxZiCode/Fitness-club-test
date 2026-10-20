@@ -7,6 +7,7 @@ public sealed class ClassValidationService : IClassValidationService
 {
     public ErrorOr<Success> Validate(
         Class @class,
+        int bookedSeats,
         int seatsDiff,
         DateTime now)
     {
@@ -18,9 +19,6 @@ public sealed class ClassValidationService : IClassValidationService
 
         if (seatsDiff > 0)
         {
-            var bookedSeats = @class.Enrollments
-                .Where(enrollment => enrollment.Status == EnrollmentStatuses.Active)
-                .Sum(enrollment => enrollment.Seats);
             if (@class.Capacity < bookedSeats + seatsDiff)
                 return Error.Conflict(EnrollmentErrors.Conflict.CapacityExceeded);
         }

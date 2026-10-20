@@ -38,14 +38,15 @@ public sealed class CreateEnrollmentService(
         if (passValidationResult.IsError)
             return passValidationResult.Errors;
 
-        var @class = await unitOfWork.Class.GetLockedNoTrackingIgnoringFiltersWithEnrollmentsAsync(
+        var classWithBookedSeats = await unitOfWork.Class.GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(
             command.ClassId,
             ct);
-        if (@class is null)
+        if (classWithBookedSeats is null)
             return Error.NotFound();
 
         var classResult = classValidationService.Validate(
-            @class,
+            classWithBookedSeats.Class,
+            classWithBookedSeats.BookedSeats,
             command.Seats,
             now);
         if (classResult.IsError)
