@@ -4,15 +4,15 @@ using ServiceLayer.Schedule;
 namespace WebApi.Schedule;
 
 public sealed record ScheduleRequest(
-    [Required] DateTimeOffset? From,
-    [Required] DateTimeOffset? To,
+    [Required] DateTime? From,
+    [Required] DateTime? To,
     long? RoomId,
     [Range(1, 100)] int Limit = 20,
     string? ContinuationToken = null) : IValidatableObject
 {
     public ScheduleQuery ToQuery(long userId) => new(
-        From.GetValueOrDefault().UtcDateTime,
-        To.GetValueOrDefault().UtcDateTime,
+        From!.Value,
+        To!.Value,
         RoomId,
         Limit,
         ContinuationToken,

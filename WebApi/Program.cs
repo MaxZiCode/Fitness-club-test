@@ -15,6 +15,7 @@ using ServiceLayer.Shared;
 using ServiceLayer.Schedule;
 using StackExchange.Redis;
 using WebApi.Auth;
+using WebApi.ModelBinding;
 using WebApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,7 +26,10 @@ builder.Host.UseDefaultServiceProvider(options =>
     options.ValidateOnBuild = true;
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.ModelBinderProviders.Insert(0, new UtcDateTimeModelBinderProvider());
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
