@@ -11,6 +11,42 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
     {
     }
 
+    public async Task<List<ScheduleClassRow>> GetSchedulePageNoTrackingAsync(
+        DateTime from,
+        DateTime to,
+        long? roomId,
+        long userId,
+        DateTime? afterStartsAt,
+        long? afterClassId,
+        int take,
+        CancellationToken ct = default)
+    {
+        var query = _dbSet.AsNoTracking()
+            .Where(c => c.StartsAt >= from && c.StartsAt < to);
+        if (roomId.HasValue)
+            query = query.Where(c => c.RoomId == roomId.Value);
+        if (afterStartsAt.HasValue && afterClassId.HasValue)
+            query = query.Where(c => c.StartsAt > afterStartsAt.Value ||
+                (c.StartsAt == afterStartsAt.Value && c.Id > afterClassId.Value));
+
+        return await query
+            .OrderBy(c => c.StartsAt)
+            .ThenBy(c => c.Id)
+            .Select(c => new ScheduleClassRow(
+                c.Id,
+                c.Title,
+                c.StartsAt,
+                c.DurationMinutes,
+                c.RoomId,
+                c.Room.Name,
+                c.Capacity,
+                c.Enrollments.Where(e => e.Status == EnrollmentStatuses.Active).Sum(e => e.Seats),
+                c.Enrollments.Where(e => e.Status == EnrollmentStatuses.Active && e.UserId == userId)
+                    .Sum(e => e.Seats)))
+            .Take(take)
+            .ToListAsync(ct);
+    }
+
     public async Task<ClassWithBookedSeats?> GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(
         long id,
         CancellationToken ct = default)

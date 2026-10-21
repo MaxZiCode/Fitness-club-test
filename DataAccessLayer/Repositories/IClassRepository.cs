@@ -18,4 +18,14 @@ public interface IClassRepository : IGenericRepository<Class>
         long enrollmentId,
         long userId,
         CancellationToken ct = default);
+
+    Task<List<ScheduleClassRow>> GetSchedulePageNoTrackingAsync(
+        DateTime from,
+        DateTime to,
+        long? roomId,
+        long userId,
+        DateTime? afterStartsAt,
+        long? afterClassId,
+        int take,
+        CancellationToken ct = default);
 }

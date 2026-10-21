@@ -13,7 +13,11 @@ public abstract class BaseApiController : ControllerBase
 
     protected bool IsAdmin => User.IsInRole(AdminRole);
 
-    protected IActionResult HandleErrors(List<Error> errors)
+    protected IActionResult HandleErrors(List<Error> errors) => HandleErrors(errors, null);
+
+    protected IActionResult HandleErrors(
+        List<Error> errors,
+        IReadOnlyDictionary<string, string>? errorCodeToParamName)
     {
         var error = errors[0];
 
@@ -22,16 +26,27 @@ public abstract class BaseApiController : ControllerBase
 
         return error.Type switch
         {
-            ErrorType.Validation => GetValidationProblemResult(errors),
+            ErrorType.Validation => GetValidationProblemResult(errors, errorCodeToParamName),
             ErrorType.Conflict => GetConflictResult(error.Code),
             ErrorType.NotFound => GetNotFoundResult(),
             _ => GetInternalServerErrorResult()
         };
     }
 
-    private ActionResult GetValidationProblemResult(List<Error> errors)
+    private ActionResult GetValidationProblemResult(
+        List<Error> errors,
+        IReadOnlyDictionary<string, string>? errorCodeToParamName)
     {
-        errors.ForEach(e => ModelState.AddModelError(e.Code, e.Description));
+        if (errorCodeToParamName is not null)
+        {
+            errors.ForEach(error =>
+            {
+                if (errorCodeToParamName.TryGetValue(error.Code, out var paramName))
+                    ModelState.AddModelError(paramName, error.Description);
+            });
+        }
+        
+
         return ValidationProblem();
     }
 

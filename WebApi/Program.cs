@@ -12,6 +12,7 @@ using Microsoft.OpenApi.Models;
 using ServiceLayer.Enrollments;
 using ServiceLayer.Idempotency;
 using ServiceLayer.Shared;
+using ServiceLayer.Schedule;
 using StackExchange.Redis;
 using WebApi.Auth;
 using WebApi.Middleware;
@@ -79,6 +80,8 @@ builder.Services.Configure<EnrollmentCardCacheOptions>(
     builder.Configuration.GetSection("EnrollmentCardCache"));
 builder.Services.AddScoped<IEnrollmentCardCacheService, EnrollmentCardCacheService>();
 builder.Services.AddScoped<IEnrollmentCardService, EnrollmentCardService>();
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<IScheduleContinuationTokenService, ScheduleContinuationTokenService>();
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;
 
