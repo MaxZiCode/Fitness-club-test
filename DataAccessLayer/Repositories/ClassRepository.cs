@@ -13,7 +13,7 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
 
     public async Task<List<ScheduleClassRow>> GetSchedulePageNoTrackingAsync(
         DateTime from,
-        DateTime to,
+        DateTime toExclusive,
         long? roomId,
         long userId,
         DateTime? afterStartsAt,
@@ -22,7 +22,7 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
         CancellationToken ct = default)
     {
         var query = _dbSet.AsNoTracking()
-            .Where(c => c.StartsAt >= from && c.StartsAt < to);
+            .Where(c => c.StartsAt >= from && c.StartsAt < toExclusive);
         if (roomId.HasValue)
             query = query.Where(c => c.RoomId == roomId.Value);
         if (afterStartsAt.HasValue && afterClassId.HasValue)
@@ -44,6 +44,39 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
                 c.Enrollments.Where(e => e.Status == EnrollmentStatuses.Active && e.UserId == userId)
                     .Sum(e => e.Seats)))
             .Take(take)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<ClassLoadSummaryRow>> GetLoadSummaryAsync(
+        DateTime from,
+        DateTime toExclusive,
+        long? roomId,
+        CancellationToken ct = default)
+    {
+        var classes = _dbSet.AsNoTracking()
+            .Where(@class => @class.StartsAt >= from && @class.StartsAt < toExclusive);
+
+        if (roomId.HasValue)
+            classes = classes.Where(@class => @class.RoomId == roomId.Value);
+
+        return await classes
+            .GroupBy(@class => new
+            {
+                @class.StartsAt.Date,
+                @class.RoomId,
+                RoomName = @class.Room.Name
+            })
+            .OrderBy(group => group.Key.Date)
+            .ThenBy(group => group.Key.RoomId)
+            .Select(group => new ClassLoadSummaryRow(
+                group.Key.Date,
+                group.Key.RoomId,
+                group.Key.RoomName,
+                group.Count(),
+                group.Sum(@class => @class.Capacity),
+                group.Sum(@class => @class.Enrollments
+                    .Where(enrollment => enrollment.Status == EnrollmentStatuses.Active)
+                    .Sum(enrollment => enrollment.Seats))))
             .ToListAsync(ct);
     }
 

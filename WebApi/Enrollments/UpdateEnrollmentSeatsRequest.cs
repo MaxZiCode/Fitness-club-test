@@ -7,5 +7,5 @@ public sealed record UpdateEnrollmentSeatsRequest(
     [Required, Range(1, int.MaxValue)] int? Seats)
 {
     public UpdateEnrollmentSeatsCommand ToCommand(long enrollmentId, long userId) =>
-        new(enrollmentId, Seats.GetValueOrDefault(), userId);
+        new(enrollmentId, Seats!.Value, userId);
 }

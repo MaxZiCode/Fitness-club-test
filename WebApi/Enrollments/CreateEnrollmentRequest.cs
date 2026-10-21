@@ -8,5 +8,5 @@ public sealed record CreateEnrollmentRequest(
     [Required, Range(1, int.MaxValue)] int? Seats)
 {
     public CreateEnrollmentCommand ToCommand(string idempotencyKey, long userId) =>
-        new(ClassId.GetValueOrDefault(), Seats.GetValueOrDefault(), idempotencyKey, userId);
+        new(ClassId!.Value, Seats!.Value, idempotencyKey, userId);
 }

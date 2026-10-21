@@ -28,4 +28,10 @@ public interface IClassRepository : IGenericRepository<Class>
         long? afterClassId,
         int take,
         CancellationToken ct = default);
+
+    Task<List<ClassLoadSummaryRow>> GetLoadSummaryAsync(
+        DateTime fromUtc,
+        DateTime toUtcExclusive,
+        long? roomId,
+        CancellationToken ct = default);
 }

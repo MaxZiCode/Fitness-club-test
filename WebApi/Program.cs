@@ -13,6 +13,7 @@ using ServiceLayer.Enrollments;
 using ServiceLayer.Idempotency;
 using ServiceLayer.Shared;
 using ServiceLayer.Schedule;
+using ServiceLayer.Analytics;
 using StackExchange.Redis;
 using WebApi.Auth;
 using WebApi.ModelBinding;
@@ -28,6 +29,7 @@ builder.Host.UseDefaultServiceProvider(options =>
 
 builder.Services.AddControllers(options =>
 {
+    options.ModelBinderProviders.Insert(0, new DateOnlyModelBinderProvider());
     options.ModelBinderProviders.Insert(0, new UtcDateTimeModelBinderProvider());
 });
 builder.Services.AddEndpointsApiExplorer();
@@ -85,6 +87,7 @@ builder.Services.Configure<EnrollmentCardCacheOptions>(
 builder.Services.AddScoped<IEnrollmentCardCacheService, EnrollmentCardCacheService>();
 builder.Services.AddScoped<IEnrollmentCardService, EnrollmentCardService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<ILoadService, LoadService>();
 builder.Services.AddScoped<IScheduleContinuationTokenService, ScheduleContinuationTokenService>();
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;

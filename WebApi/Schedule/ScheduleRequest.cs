@@ -20,7 +20,7 @@ public sealed record ScheduleRequest(
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (From.HasValue && To.HasValue && From.Value >= To.Value)
+        if (From!.Value >= To!.Value)
         {
             yield return new ValidationResult(
                 "'to' must be later than 'from'.",
