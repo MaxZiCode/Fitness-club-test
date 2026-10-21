@@ -17,6 +17,8 @@ public class PassConfiguration : IEntityTypeConfiguration<Pass>
         builder.Property(x => x.RemainingVisits).HasColumnName("remaining_visits");
         builder.Property(x => x.ValidUntil).HasColumnName("valid_until").HasColumnType("date");
 
+        builder.HasIndex(x => x.UserId).IsUnique();
+
         builder
             .HasOne<User>()
             .WithMany()

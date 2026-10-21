@@ -28,6 +28,11 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
             .IsUnique()
             .HasFilter("idempotency_key_hash IS NOT NULL");
 
+        builder.HasIndex(x => new { x.ClassId, x.Status, x.UserId })
+            .IncludeProperties(x => x.Seats);
+
+        builder.HasIndex(x => x.UserId);
+
         builder
             .HasOne<User>()
             .WithMany()

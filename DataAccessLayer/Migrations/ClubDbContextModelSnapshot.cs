@@ -60,6 +60,9 @@ namespace DataAccessLayer.Migrations
 
                     b.HasIndex("RoomId");
 
+                    b.HasIndex("StartsAt", "Id")
+                        .HasFilter("is_cancelled = false");
+
                     b.ToTable("classes", (string)null);
                 });
 
@@ -108,11 +111,15 @@ namespace DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClassId");
+                    b.HasIndex("UserId");
 
                     b.HasIndex("UserId", "IdempotencyKeyHash")
                         .IsUnique()
                         .HasFilter("idempotency_key_hash IS NOT NULL");
+
+                    b.HasIndex("ClassId", "Status", "UserId");
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("ClassId", "Status", "UserId"), new[] { "Seats" });
 
                     b.ToTable("enrollments", (string)null);
                 });
@@ -140,7 +147,8 @@ namespace DataAccessLayer.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.ToTable("passes", (string)null);
                 });
@@ -193,6 +201,9 @@ namespace DataAccessLayer.Migrations
                         .HasColumnName("role");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.ToTable("users", (string)null);
                 });
