@@ -1,6 +1,7 @@
 using DataAccessLayer.Entities;
 using DataAccessLayer.UnitOfWork;
 using ErrorOr;
+using Microsoft.Extensions.Options;
 using ServiceLayer.Shared;
 
 namespace ServiceLayer.Enrollments;
@@ -9,10 +10,10 @@ public sealed class CancelEnrollmentService(
     IUnitOfWork unitOfWork,
     IDateTimeService dateTimeService,
     IPassValidationService passValidationService,
-    IEnrollmentCardCacheService enrollmentCardCacheService) : ICancelEnrollmentService
+    IEnrollmentCardCacheService enrollmentCardCacheService,
+    IOptions<EnrollmentCancellationOptions> options) : ICancelEnrollmentService
 {
-    // TODO: move to config
-    private static readonly TimeSpan RefundCutoff = TimeSpan.FromHours(2);
+    private readonly TimeSpan _refundCutoff = options.Value.RefundCutoff;
 
     public async Task<ErrorOr<CancelEnrollmentResult>> CancelEnrollmentAsync(
         CancelEnrollmentCommand command,
@@ -41,7 +42,7 @@ public sealed class CancelEnrollmentService(
         if (!@class.IsCancelled && @class.StartsAt <= now)
             return Error.Conflict(EnrollmentErrors.Conflict.ClassStarted);
 
-        var refundedVisits = @class.IsCancelled || @class.StartsAt - now >= RefundCutoff
+        var refundedVisits = @class.IsCancelled || @class.StartsAt - now >= _refundCutoff
             ? enrollment.Seats
             : 0;
 

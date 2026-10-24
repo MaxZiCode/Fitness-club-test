@@ -117,6 +117,10 @@ builder.Services.AddScoped<IJoinWaitlistService, JoinWaitlistService>();
 builder.Services.AddScoped<ICancelWaitlistService, CancelWaitlistService>();
 builder.Services.AddScoped<IUpdateEnrollmentSeatsService, UpdateEnrollmentSeatsService>();
 builder.Services.AddScoped<ICancelEnrollmentService, CancelEnrollmentService>();
+builder.Services.AddOptions<EnrollmentCancellationOptions>()
+    .Bind(builder.Configuration.GetSection(EnrollmentCancellationOptions.SectionName))
+    .Validate(options => options.RefundCutoff >= TimeSpan.Zero, "RefundCutoff must be zero or greater.")
+    .ValidateOnStart();
 builder.Services.Configure<EnrollmentCardCacheOptions>(
     builder.Configuration.GetSection("EnrollmentCardCache"));
 builder.Services.AddScoped<IEnrollmentCardCacheService, EnrollmentCardCacheService>();
