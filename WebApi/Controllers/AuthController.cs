@@ -2,6 +2,7 @@ using DataAccessLayer.Entities;
 using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using WebApi.Auth;
 
@@ -9,6 +10,7 @@ namespace WebApi.Controllers;
 
 [ApiController]
 [Route("auth")]
+[DisableRateLimiting]
 public class AuthController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;

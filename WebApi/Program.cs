@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using Common.Caching;
 using DataAccessLayer;
 using DataAccessLayer.Entities;
@@ -7,18 +9,20 @@ using DataAccessLayer.UnitOfWork;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ServiceLayer.Analytics;
 using ServiceLayer.Enrollments;
 using ServiceLayer.Enrollments.Waitlist;
 using ServiceLayer.Idempotency;
-using ServiceLayer.Shared;
 using ServiceLayer.Schedule;
-using ServiceLayer.Analytics;
+using ServiceLayer.Shared;
 using StackExchange.Redis;
 using WebApi.Auth;
-using WebApi.ModelBinding;
+using WebApi.Configuration;
 using WebApi.Middleware;
+using WebApi.ModelBinding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,6 +66,34 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
+builder.Services.AddOptions<ApiRateLimitOptions>()
+    .Bind(builder.Configuration.GetSection(ApiRateLimitOptions.SectionName))
+    .Validate(options => options.RequestsPerMinute > 0, "RequestsPerMinute must be greater than zero.")
+    .ValidateOnStart();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+        {
+            return RateLimitPartition.GetNoLimiter<string>("anonymous");
+        }
+
+        var rpm = context.RequestServices
+            .GetRequiredService<IOptions<ApiRateLimitOptions>>()
+            .Value.RequestsPerMinute;
+
+        return RateLimitPartition.GetFixedWindowLimiter($"user:{userId}", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = rpm,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
+    });
+});
 
 builder.Services.AddDbContext<ClubDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
@@ -124,7 +156,9 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.UseRouting();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
