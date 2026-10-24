@@ -56,9 +56,10 @@ public class GenericRepository<TEntity> : IGenericRepository<TEntity>
         return await query.CountAsync(ct);
     }
 
-    public async Task<TEntity> CreateAsync(TEntity entity, CancellationToken ct = default)
+    // решение: AddAsync нужен только для асинхронных генераторов ключей (например, HiLo); приложение их не использует, поэтому достаточно синхронного Add.
+    public TEntity Create(TEntity entity)
     {
-        return (await _dbSet.AddAsync(entity, ct)).Entity;
+        return _dbSet.Add(entity).Entity;
     }
 
     public TEntity Update(TEntity entity)

@@ -86,7 +86,7 @@ public sealed class CancelEnrollmentService(
                 waitingEntry.Status = WaitlistEntryStatuses.Promoted;
                 pass.RemainingVisits -= waitingEntry.Seats;
                 updatedUserIds.Add(pass.UserId);
-                await unitOfWork.Enrollment.CreateAsync(CreatePromotedEnrollment(waitingEntry, now), ct);
+                unitOfWork.Enrollment.Create(CreatePromotedEnrollment(waitingEntry, now));
 
                 remainingSeats -= waitingEntry.Seats;
                 if (remainingSeats == 0)

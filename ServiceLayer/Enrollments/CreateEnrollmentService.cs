@@ -58,7 +58,7 @@ public sealed class CreateEnrollmentService(
         ConsumePassVisits(pass, command.Seats);
 
         var enrollment = CreateEnrollment(command, keyHash, now);
-        await unitOfWork.Enrollment.CreateAsync(enrollment, ct);
+        unitOfWork.Enrollment.Create(enrollment);
         await unitOfWork.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 

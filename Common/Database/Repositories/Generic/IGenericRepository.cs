@@ -20,7 +20,7 @@ public interface IGenericRepository<TEntity> where TEntity : class, IEntity
         Func<IQueryable<TEntity>, IQueryable<TEntity>>? filter = null,
         CancellationToken ct = default);
 
-    Task<TEntity> CreateAsync(TEntity entity, CancellationToken ct = default);
+    TEntity Create(TEntity entity);
 
     TEntity Update(TEntity entity);
 

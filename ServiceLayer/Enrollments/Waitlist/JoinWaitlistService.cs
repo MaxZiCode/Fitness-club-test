@@ -56,7 +56,7 @@ public sealed class JoinWaitlistService(
         var position = queueState.WaitingCount + 1;
         WaitlistEntry entry = CreateWaitlistEntry(command, keyHash, now, position);
 
-        await unitOfWork.WaitlistEntry.CreateAsync(entry, cancellationToken);
+        unitOfWork.WaitlistEntry.Create(entry);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
