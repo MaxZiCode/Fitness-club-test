@@ -82,6 +82,7 @@ public sealed class CreateEnrollmentService(
             UserId = command.UserId,
             ClassId = command.ClassId,
             Seats = command.Seats,
+            InitialSeats = command.Seats,
             Status = EnrollmentStatuses.Active,
             IdempotencyKeyHash = idempotencyKeyHash,
             CreatedAt = now,
@@ -92,8 +93,7 @@ public sealed class CreateEnrollmentService(
         Enrollment existing,
         CreateEnrollmentCommand command)
     {
-        // TODO: add initial seats to prevent mismatch after seats were changed
-        if (existing.ClassId != command.ClassId || existing.Seats != command.Seats)
+        if (existing.ClassId != command.ClassId || existing.InitialSeats != command.Seats)
             return IdempotencyErrors.PayloadMismatch;
 
         return CreateEnrollmentResult.FromEnrollment(existing);

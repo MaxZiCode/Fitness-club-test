@@ -12,9 +12,11 @@ public class Enrollment : IEntity
 
     public int Seats { get; set; }
 
+    public int InitialSeats { get; set; }
+
     public string Status { get; set; } = null!;
 
-    public string? IdempotencyKeyHash { get; set; }
+    public string IdempotencyKeyHash { get; set; } = null!;
 
     public DateTime CreatedAt { get; set; }
 

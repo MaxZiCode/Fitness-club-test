@@ -88,9 +88,14 @@ namespace DataAccessLayer.Migrations
                         .HasColumnName("created_at");
 
                     b.Property<string>("IdempotencyKeyHash")
+                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("idempotency_key_hash");
+
+                    b.Property<int>("InitialSeats")
+                        .HasColumnType("integer")
+                        .HasColumnName("initial_seats");
 
                     b.Property<int>("RefundedVisits")
                         .HasColumnType("integer")
@@ -114,8 +119,7 @@ namespace DataAccessLayer.Migrations
                     b.HasIndex("UserId");
 
                     b.HasIndex("UserId", "IdempotencyKeyHash")
-                        .IsUnique()
-                        .HasFilter("idempotency_key_hash IS NOT NULL");
+                        .IsUnique();
 
                     b.HasIndex("ClassId", "Status", "UserId");
 

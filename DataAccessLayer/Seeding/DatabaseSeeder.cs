@@ -1,6 +1,8 @@
 using DataAccessLayer.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace DataAccessLayer.Seeding;
 
@@ -136,6 +138,7 @@ public static class DatabaseSeeder
 
         var takenSeats = new Dictionary<long, int>();
         var enrollments = new List<Enrollment>();
+        var idempotencyKeyHashes = new HashSet<string>(StringComparer.Ordinal);
         var passesByUser = passes.ToDictionary(x => x.UserId);
 
         for (var i = 0; i < EnrollmentCount; i++)
@@ -165,6 +168,11 @@ public static class DatabaseSeeder
                 UserId = user.Id,
                 ClassId = scheduledClass.Id,
                 Seats = seats,
+                InitialSeats = seats,
+                IdempotencyKeyHash = CreateUniqueSeedIdempotencyKeyHash(
+                    idempotencyKeyHashes,
+                    "enrollment",
+                    enrollments.Count),
                 Status = cancelled ? "cancelled" : "active",
                 CreatedAt = createdAt,
                 CancelledAt = cancelled
@@ -207,6 +215,11 @@ public static class DatabaseSeeder
                     UserId = donor.UserId,
                     ClassId = scheduledClass.Id,
                     Seats = seats,
+                    InitialSeats = seats,
+                    IdempotencyKeyHash = CreateUniqueSeedIdempotencyKeyHash(
+                        idempotencyKeyHashes,
+                        "enrollment",
+                        enrollments.Count),
                     Status = "active",
                     CreatedAt = CreatedBefore(scheduledClass.StartsAt, now, random),
                     CancelledAt = null
@@ -244,6 +257,11 @@ public static class DatabaseSeeder
                     UserId = donor.UserId,
                     ClassId = scheduledClass.Id,
                     Seats = 1,
+                    InitialSeats = 1,
+                    IdempotencyKeyHash = CreateUniqueSeedIdempotencyKeyHash(
+                        idempotencyKeyHashes,
+                        "enrollment",
+                        enrollments.Count),
                     Status = "active",
                     CreatedAt = CreatedBefore(scheduledClass.StartsAt, now, random),
                     CancelledAt = null
@@ -252,6 +270,25 @@ public static class DatabaseSeeder
         }
 
         await dbContext.Enrollments.AddRangeAsync(enrollments, ct);
+
+        var waitlistEntries = filledClasses
+            .Where(scheduledClass => takenSeats.GetValueOrDefault(scheduledClass.Id) >= scheduledClass.Capacity)
+            .Select((scheduledClass, index) => new WaitlistEntry
+            {
+                UserId = users[UserCount - index - 1].Id,
+                ClassId = scheduledClass.Id,
+                Seats = 1,
+                InitialPosition = 1,
+                Status = "waiting",
+                IdempotencyKeyHash = CreateUniqueSeedIdempotencyKeyHash(
+                    idempotencyKeyHashes,
+                    "waitlist",
+                    index),
+                CreatedAt = now
+            })
+            .ToList();
+
+        await dbContext.WaitlistEntries.AddRangeAsync(waitlistEntries, ct);
         await dbContext.SaveChangesAsync(ct);
     }
 
@@ -290,5 +327,21 @@ public static class DatabaseSeeder
     private static DateTime TruncateToMinute(DateTime value)
     {
         return new DateTime(value.Year, value.Month, value.Day, value.Hour, value.Minute, 0, DateTimeKind.Utc);
+    }
+
+    private static string CreateUniqueSeedIdempotencyKeyHash(
+        HashSet<string> usedHashes,
+        string entity,
+        int index)
+    {
+        for (var collisionCounter = 0; ; collisionCounter++)
+        {
+            var seed = $"seed-{entity}-{index}-{collisionCounter}";
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
+            var hash = Convert.ToHexString(bytes).ToLowerInvariant();
+
+            if (usedHashes.Add(hash))
+                return hash;
+        }
     }
 }
