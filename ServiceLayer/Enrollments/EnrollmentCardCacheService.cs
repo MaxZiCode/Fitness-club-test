@@ -34,6 +34,23 @@ public sealed class EnrollmentCardCacheService(
         await cacheService.IncrementAsync(GetUserVersionKey(userId), ct);
     }
 
+    public async Task InvalidateEnrollmentsForUsersAsync(
+        IReadOnlyCollection<long> userIds,
+        CancellationToken ct = default)
+    {
+        if (userIds.Count == 1)
+        {
+            await InvalidateEnrollmentsForUserAsync(userIds.First(), ct);
+            return;
+        }
+
+        var keys = userIds
+            .Select(GetUserVersionKey)
+            .ToArray();
+
+        await cacheService.IncrementManyAsync(keys, ct);
+    }
+
     public async Task InvalidateEnrollmentForUserAsync(
         long userId,
         long enrollmentId,

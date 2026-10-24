@@ -10,6 +10,10 @@ public interface IEnrollmentCardCacheService
 
     Task InvalidateEnrollmentsForUserAsync(long userId, CancellationToken cancellationToken = default);
 
+    Task InvalidateEnrollmentsForUsersAsync(
+        IReadOnlyCollection<long> userIds,
+        CancellationToken cancellationToken = default);
+
     Task InvalidateEnrollmentForUserAsync(
         long userId,
         long enrollmentId,

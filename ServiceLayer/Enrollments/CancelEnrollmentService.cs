@@ -101,12 +101,7 @@ public sealed class CancelEnrollmentService(
         await unitOfWork.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
-        foreach (var updatedUserId in updatedUserIds)
-        {
-            await enrollmentCardCacheService.InvalidateEnrollmentsForUserAsync(
-                updatedUserId,
-                ct);
-        }
+        await enrollmentCardCacheService.InvalidateEnrollmentsForUsersAsync(updatedUserIds, ct);
 
         if (refundedVisits == 0)
         {

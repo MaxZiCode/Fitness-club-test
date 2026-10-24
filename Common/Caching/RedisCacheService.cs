@@ -28,7 +28,7 @@ public class RedisCacheService : ICacheService
         return JsonSerializer.Deserialize<T>(value!, SerializerOptions);
     }
 
-    public async Task<T?[]> GetManyAsync<T>(IReadOnlyList<string> keys, CancellationToken ct = default)
+    public async Task<T?[]> GetManyAsync<T>(IEnumerable<string> keys, CancellationToken ct = default)
     {
         var redisKeys = keys.Select(key => (RedisKey)key).ToArray();
         var values = await _connection.GetDatabase().StringGetAsync(redisKeys).WaitAsync(ct);
@@ -50,6 +50,22 @@ public class RedisCacheService : ICacheService
     public async Task<long> IncrementAsync(string key, CancellationToken ct = default)
     {
         return await _connection.GetDatabase().StringIncrementAsync(key).WaitAsync(ct);
+    }
+
+    public async Task IncrementManyAsync(IEnumerable<string> keys, CancellationToken ct = default)
+    {
+        var keyArray = keys.ToArray();
+        if (keyArray.Length == 0)
+            return;
+
+        var database = _connection.GetDatabase();
+        var batch = database.CreateBatch();
+        var increments = keyArray
+            .Select(key => batch.StringIncrementAsync(key))
+            .ToArray();
+
+        batch.Execute();
+        await Task.WhenAll(increments).WaitAsync(ct);
     }
 
     public async Task RemoveAsync(string key, CancellationToken ct = default)
