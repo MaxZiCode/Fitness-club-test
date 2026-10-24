@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ServiceLayer.Enrollments;
+using ServiceLayer.Enrollments.Waitlist;
 using ServiceLayer.Idempotency;
 using ServiceLayer.Shared;
 using ServiceLayer.Schedule;
@@ -80,6 +81,8 @@ builder.Services.AddScoped<IPassValidationService, PassValidationService>();
 builder.Services.AddScoped<IClassValidationService, ClassValidationService>();
 builder.Services.AddScoped<IEnrollmentValidationService, EnrollmentValidationService>();
 builder.Services.AddScoped<ICreateEnrollmentService, CreateEnrollmentService>();
+builder.Services.AddScoped<IJoinWaitlistService, JoinWaitlistService>();
+builder.Services.AddScoped<ICancelWaitlistService, CancelWaitlistService>();
 builder.Services.AddScoped<IUpdateEnrollmentSeatsService, UpdateEnrollmentSeatsService>();
 builder.Services.AddScoped<ICancelEnrollmentService, CancelEnrollmentService>();
 builder.Services.Configure<EnrollmentCardCacheOptions>(

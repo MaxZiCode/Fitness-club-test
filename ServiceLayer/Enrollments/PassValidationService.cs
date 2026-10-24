@@ -5,9 +5,9 @@ namespace ServiceLayer.Enrollments;
 
 public sealed class PassValidationService : IPassValidationService
 {
-    public ErrorOr<Success> Validate(Pass pass, int requestedSeats, DateTime now)
+    public ErrorOr<Success> Validate(Pass pass, int requestedSeats, DateOnly date)
     {
-        if (pass.ValidUntil <= DateOnly.FromDateTime(now))
+        if (pass.ValidUntil < date)
             return Error.Conflict(EnrollmentErrors.Conflict.PassExpired);
 
         if (pass.RemainingVisits < requestedSeats)

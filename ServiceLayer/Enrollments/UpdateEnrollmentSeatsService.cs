@@ -18,7 +18,6 @@ public sealed class UpdateEnrollmentSeatsService(
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
 
-        var pass = await unitOfWork.Pass.GetLockedByUserAsync(command.UserId, ct);
         var classWithEnrollmentAndBookedSeats = await unitOfWork.Class
             .GetLockedClassWithEnrollmentAndBookedSeatsByEnrollmentAndUserIgnoringFiltersAsync(
                 command.EnrollmentId,
@@ -33,7 +32,7 @@ public sealed class UpdateEnrollmentSeatsService(
 
         var now = dateTimeService.GetNow();
         var difference = command.Seats - enrollment.Seats;
-        var classValidationResult = classValidationService.Validate(
+        var classValidationResult = classValidationService.ValidateEnrollment(
             @class,
             classWithEnrollmentAndBookedSeats.BookedSeats,
             difference,
@@ -45,26 +44,30 @@ public sealed class UpdateEnrollmentSeatsService(
         if (enrollmentValidationResult.IsError)
             return enrollmentValidationResult.Errors;
 
+        var pass = await unitOfWork.Pass.GetLockedByUserIdAsync(command.UserId, ct);
+        if (difference == 0)
+        {
+            await transaction.CommitAsync(ct);
+            return EnrollmentCard.FromEnrollment(enrollment, pass);
+        }
+
         if (difference > 0)
         {
-            enrollmentValidationResult = passValidationService.Validate(pass, difference, now);
+            enrollmentValidationResult = passValidationService.Validate(
+                pass,
+                difference,
+                DateOnly.FromDateTime(now));
             if (enrollmentValidationResult.IsError)
                 return enrollmentValidationResult.Errors;
         }
 
+        pass.RemainingVisits -= difference;
 
-        if (difference != 0)
-        {
-            pass.RemainingVisits -= difference;
-
-            enrollment.Seats = command.Seats;
-            await unitOfWork.SaveChangesAsync(ct);
-        }
-
+        enrollment.Seats = command.Seats;
+        await unitOfWork.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
-        if (difference != 0)
-            await enrollmentCardCacheService.InvalidateEnrollmentsForUserAsync(command.UserId, ct);
+        await enrollmentCardCacheService.InvalidateEnrollmentsForUserAsync(command.UserId, ct);
 
         return EnrollmentCard.FromEnrollment(enrollment, pass);
     }

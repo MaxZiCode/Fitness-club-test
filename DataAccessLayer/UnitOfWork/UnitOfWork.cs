@@ -12,6 +12,8 @@ public interface IUnitOfWork : IUnitOfWorkBase
 
     IEnrollmentRepository Enrollment { get; }
 
+    IWaitlistEntryRepository WaitlistEntry { get; }
+
     IPassRepository Pass { get; }
 }
 
@@ -28,6 +30,10 @@ public class UnitOfWork : UnitOfWorkBase, IUnitOfWork
 
     public IEnrollmentRepository Enrollment =>
         GetRepository<Enrollment, IEnrollmentRepository>(set => new EnrollmentRepository(set));
+
+    public IWaitlistEntryRepository WaitlistEntry =>
+        GetRepository<WaitlistEntry, IWaitlistEntryRepository>(
+            set => new WaitlistEntryRepository(set));
 
     public IPassRepository Pass => GetRepository<Pass, IPassRepository>(set => new PassRepository(set));
 }

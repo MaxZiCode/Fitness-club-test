@@ -208,6 +208,61 @@ namespace DataAccessLayer.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("DataAccessLayer.Entities.WaitlistEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("ClassId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("class_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("IdempotencyKeyHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("idempotency_key_hash");
+
+                    b.Property<int>("InitialPosition")
+                        .HasColumnType("integer")
+                        .HasColumnName("initial_position");
+
+                    b.Property<int>("Seats")
+                        .HasColumnType("integer")
+                        .HasColumnName("seats");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassId", "UserId")
+                        .IsUnique()
+                        .HasFilter("status = 'waiting'");
+
+                    b.HasIndex("UserId", "IdempotencyKeyHash")
+                        .IsUnique();
+
+                    b.HasIndex("ClassId", "CreatedAt", "Id")
+                        .HasFilter("status = 'waiting'");
+
+                    b.ToTable("waitlist_entries", (string)null);
+                });
+
             modelBuilder.Entity("DataAccessLayer.Entities.Class", b =>
                 {
                     b.HasOne("DataAccessLayer.Entities.Room", "Room")
@@ -239,15 +294,38 @@ namespace DataAccessLayer.Migrations
             modelBuilder.Entity("DataAccessLayer.Entities.Pass", b =>
                 {
                     b.HasOne("DataAccessLayer.Entities.User", null)
+                        .WithOne("Pass")
+                        .HasForeignKey("DataAccessLayer.Entities.Pass", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DataAccessLayer.Entities.WaitlistEntry", b =>
+                {
+                    b.HasOne("DataAccessLayer.Entities.Class", null)
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("DataAccessLayer.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("DataAccessLayer.Entities.Class", b =>
                 {
                     b.Navigation("Enrollments");
+                });
+
+            modelBuilder.Entity("DataAccessLayer.Entities.User", b =>
+                {
+                    b.Navigation("Pass")
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

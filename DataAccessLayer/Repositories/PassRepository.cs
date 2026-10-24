@@ -20,12 +20,27 @@ public class PassRepository : GenericRepository<Pass>, IPassRepository
         return GetRequiredPassAsync(query, userId, ct);
     }
 
-    public Task<Pass> GetLockedByUserAsync(long userId, CancellationToken ct = default)
+    public Task<Pass> GetLockedByUserIdAsync(long userId, CancellationToken ct = default)
     {
         var query = _dbSet
             .FromSqlInterpolated($"SELECT * FROM passes WHERE user_id = {userId} FOR NO KEY UPDATE");
 
         return GetRequiredPassAsync(query, userId, ct);
+    }
+
+    public Task<List<Pass>> GetLockedByUserIdsAsync(
+        IReadOnlyCollection<long> userIds,
+        CancellationToken ct = default)
+    {
+        var query = _dbSet.FromSqlInterpolated($"""
+            SELECT p.*
+            FROM passes AS p
+            WHERE p.user_id = ANY({userIds})
+            ORDER BY p.id
+            FOR NO KEY UPDATE
+            """);
+
+        return query.ToListAsync(ct);
     }
 
     private static async Task<Pass> GetRequiredPassAsync(

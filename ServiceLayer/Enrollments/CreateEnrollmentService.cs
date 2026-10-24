@@ -20,7 +20,10 @@ public sealed class CreateEnrollmentService(
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
 
-        var pass = await unitOfWork.Pass.GetLockedByUserAsync(command.UserId, ct);
+        var classWithBookedSeats = await unitOfWork.Class.GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(
+            command.ClassId,
+            ct);
+        var pass = await unitOfWork.Pass.GetLockedByUserIdAsync(command.UserId, ct);
 
         var keyHash = idempotencyKeyHasher.Hash(command.IdempotencyKey);
         var existing = await unitOfWork.Enrollment.GetByUserAndIdempotencyKeyHashAsync(
@@ -33,18 +36,18 @@ public sealed class CreateEnrollmentService(
             return ReplayOrReturnPayloadMismatch(existing, command);
         }
 
-        var now = dateTimeService.GetNow();
-        var passValidationResult = passValidationService.Validate(pass, command.Seats, now);
-        if (passValidationResult.IsError)
-            return passValidationResult.Errors;
-
-        var classWithBookedSeats = await unitOfWork.Class.GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(
-            command.ClassId,
-            ct);
         if (classWithBookedSeats is null)
             return Error.NotFound();
 
-        var classResult = classValidationService.Validate(
+        var now = dateTimeService.GetNow();
+        var passValidationResult = passValidationService.Validate(
+            pass,
+            command.Seats,
+            DateOnly.FromDateTime(now));
+        if (passValidationResult.IsError)
+            return passValidationResult.Errors;
+
+        var classResult = classValidationService.ValidateEnrollment(
             classWithBookedSeats.Class,
             classWithBookedSeats.BookedSeats,
             command.Seats,
@@ -89,6 +92,7 @@ public sealed class CreateEnrollmentService(
         Enrollment existing,
         CreateEnrollmentCommand command)
     {
+        // TODO: add initial seats to prevent mismatch after seats were changed
         if (existing.ClassId != command.ClassId || existing.Seats != command.Seats)
             return IdempotencyErrors.PayloadMismatch;
 

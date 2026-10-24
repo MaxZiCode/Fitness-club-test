@@ -7,5 +7,7 @@ public interface IPassRepository : IGenericRepository<Pass>
 {
     Task<Pass> GetByUserNoTrackingAsync(long userId, CancellationToken ct = default);
 
-    Task<Pass> GetLockedByUserAsync(long userId, CancellationToken ct = default);
+    Task<Pass> GetLockedByUserIdAsync(long userId, CancellationToken ct = default);
+
+    Task<List<Pass>> GetLockedByUserIdsAsync(IReadOnlyCollection<long> userIds, CancellationToken ct = default);
 }

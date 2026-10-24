@@ -18,10 +18,5 @@ public class PassConfiguration : IEntityTypeConfiguration<Pass>
         builder.Property(x => x.ValidUntil).HasColumnName("valid_until").HasColumnType("date");
 
         builder.HasIndex(x => x.UserId).IsUnique();
-
-        builder
-            .HasOne<User>()
-            .WithMany()
-            .HasForeignKey(x => x.UserId);
     }
 }

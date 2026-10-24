@@ -13,4 +13,6 @@ public class User : IEntity
     public string Role { get; set; } = null!;
 
     public DateTime CreatedAt { get; set; }
+
+    public Pass Pass { get; set; } = null!;
 }

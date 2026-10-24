@@ -19,5 +19,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone");
 
         builder.HasIndex(x => x.Email).IsUnique();
+
+        builder
+            .HasOne(x => x.Pass)
+            .WithOne()
+            .HasForeignKey<Pass>(x => x.UserId);
     }
 }
