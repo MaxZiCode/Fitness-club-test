@@ -25,6 +25,7 @@ public class EnrollmentRepository : GenericRepository<Enrollment>, IEnrollmentRe
     {
         return await _dbSet
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .Include(x => x.Class)
             .ThenInclude(x => x.Room)
             .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);

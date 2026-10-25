@@ -23,6 +23,6 @@ public sealed record ScheduleItem(
         row.RoomId,
         row.RoomName,
         row.Capacity,
-        row.Capacity - row.BookedSeats,
+        Math.Max(0, row.Capacity - row.BookedSeats),
         row.MySeats);
 }

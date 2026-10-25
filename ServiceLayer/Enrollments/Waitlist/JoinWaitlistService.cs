@@ -1,7 +1,6 @@
 using DataAccessLayer.Entities;
 using DataAccessLayer.UnitOfWork;
 using ErrorOr;
-using ServiceLayer.Enrollments;
 using ServiceLayer.Idempotency;
 using ServiceLayer.Shared;
 
@@ -19,8 +18,8 @@ public sealed class JoinWaitlistService(
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 
-        var classWithBookedSeats = await unitOfWork.Class
-            .GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(command.ClassId, cancellationToken);
+        var @class = await unitOfWork.Class
+            .GetLockedNoTrackingIgnoringFiltersAsync(command.ClassId, cancellationToken);
 
         var keyHash = idempotencyKeyHasher.Hash(command.IdempotencyKey);
         var existing = await unitOfWork.WaitlistEntry.GetByUserAndIdempotencyKeyHashAsync(
@@ -33,14 +32,14 @@ public sealed class JoinWaitlistService(
             return ReplayOrReturnPayloadMismatch(existing, command);
         }
 
-        if (classWithBookedSeats is null)
+        if (@class is null)
             return Error.NotFound();
 
-        var @class = classWithBookedSeats.Class;
         var now = dateTimeService.GetNow();
+        var bookedSeats = await unitOfWork.Class.GetBookedSeatsAsync(command.ClassId, cancellationToken);
         var classValidationResult = classValidationService.ValidateWaitlist(
             @class,
-            classWithBookedSeats.BookedSeats,
+            bookedSeats,
             command.Seats,
             now);
         if (classValidationResult.IsError)

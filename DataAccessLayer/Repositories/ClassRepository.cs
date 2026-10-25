@@ -80,7 +80,7 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
             .ToListAsync(ct);
     }
 
-    public async Task<ClassWithBookedSeats?> GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(
+    public async Task<Class?> GetLockedNoTrackingIgnoringFiltersAsync(
         long id,
         CancellationToken ct = default)
     {
@@ -89,11 +89,17 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Include(x => x.Room)
-            .Select(@class => new ClassWithBookedSeats(
-                @class,
-                @class.Enrollments
-                    .Where(enrollment => enrollment.Status == EnrollmentStatuses.Active)
-                    .Sum(enrollment => enrollment.Seats)))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<int> GetBookedSeatsAsync(long classId, CancellationToken ct = default)
+    {
+        return await _dbSet
+            .IgnoreQueryFilters()
+            .Where(@class => @class.Id == classId)
+            .Select(@class => @class.Enrollments
+                .Where(enrollment => enrollment.Status == EnrollmentStatuses.Active)
+                .Sum(enrollment => enrollment.Seats))
             .FirstOrDefaultAsync(ct);
     }
 

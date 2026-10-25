@@ -5,9 +5,11 @@ namespace DataAccessLayer.Repositories;
 
 public interface IClassRepository : IGenericRepository<Class>
 {
-    Task<ClassWithBookedSeats?> GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(
+    Task<Class?> GetLockedNoTrackingIgnoringFiltersAsync(
         long id,
         CancellationToken ct = default);
+
+    Task<int> GetBookedSeatsAsync(long classId, CancellationToken ct = default);
 
     Task<ClassWithEnrollmentAndBookedSeats?> GetLockedClassWithEnrollmentAndBookedSeatsByEnrollmentAndUserIgnoringFiltersAsync(
         long enrollmentId,

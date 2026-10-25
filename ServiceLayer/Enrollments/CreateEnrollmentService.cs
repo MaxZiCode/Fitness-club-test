@@ -20,7 +20,7 @@ public sealed class CreateEnrollmentService(
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
 
-        var classWithBookedSeats = await unitOfWork.Class.GetLockedNoTrackingIgnoringFiltersWithBookedSeatsAsync(
+        var @class = await unitOfWork.Class.GetLockedNoTrackingIgnoringFiltersAsync(
             command.ClassId,
             ct);
         var pass = await unitOfWork.Pass.GetLockedByUserIdAsync(command.UserId, ct);
@@ -36,7 +36,7 @@ public sealed class CreateEnrollmentService(
             return ReplayOrReturnPayloadMismatch(existing, command);
         }
 
-        if (classWithBookedSeats is null)
+        if (@class is null)
             return Error.NotFound();
 
         var now = dateTimeService.GetNow();
@@ -47,9 +47,10 @@ public sealed class CreateEnrollmentService(
         if (passValidationResult.IsError)
             return passValidationResult.Errors;
 
+        var bookedSeats = await unitOfWork.Class.GetBookedSeatsAsync(command.ClassId, ct);
         var classResult = classValidationService.ValidateEnrollment(
-            classWithBookedSeats.Class,
-            classWithBookedSeats.BookedSeats,
+            @class,
+            bookedSeats,
             command.Seats,
             now);
         if (classResult.IsError)

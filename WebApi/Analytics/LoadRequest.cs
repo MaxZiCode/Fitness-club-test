@@ -12,7 +12,7 @@ public sealed record LoadRequest(
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (To!.Value < From!.Value)
+        if (From.HasValue && To.HasValue && To.Value < From.Value)
         {
             yield return new ValidationResult(
                 "'to' must not be earlier than 'from'.",
