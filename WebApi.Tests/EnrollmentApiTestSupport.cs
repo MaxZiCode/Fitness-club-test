@@ -211,6 +211,25 @@ internal static class EnrollmentApiTestSupport
         return SendAndDisposeRequestAsync(client, request);
     }
 
+    public static Task<HttpResponseMessage> PostWaitlistAsync(
+        HttpClient client,
+        long classId,
+        int seats,
+        string? idempotencyKey = null)
+    {
+        var request = CreateJsonRequest(
+            "/enrollments/waitlist",
+            JsonSerializer.Serialize(new { classId, seats }),
+            idempotencyKey);
+        return SendAndDisposeRequestAsync(client, request);
+    }
+
+    public static Task<HttpResponseMessage> CancelWaitlistAsync(HttpClient client, long waitlistEntryId) =>
+        client.PostAsync($"/enrollments/waitlist/{waitlistEntryId}/cancel", content: null);
+
+    public static Task<HttpResponseMessage> CancelEnrollmentAsync(HttpClient client, long enrollmentId) =>
+        client.PostAsync($"/enrollments/{enrollmentId}/cancel", content: null);
+
     public static Task<HttpResponseMessage> PostEnrollmentSeatsAsync(
         HttpClient client,
         long enrollmentId,

@@ -69,7 +69,7 @@ public class WaitlistEntryRepository : GenericRepository<WaitlistEntry>, IWaitli
                 entry.Seats <= maxSeats &&
                 entry.User.Pass.ValidUntil >= date &&
                 (entry.UserId == userId
-                    ? entry.User.Pass.RemainingVisits - userVisits >= entry.Seats
+                    ? entry.User.Pass.RemainingVisits + userVisits >= entry.Seats
                     : entry.User.Pass.RemainingVisits >= entry.Seats))
             .OrderBy(entry => entry.CreatedAt)
             .ThenBy(entry => entry.Id)

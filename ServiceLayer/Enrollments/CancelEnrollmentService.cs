@@ -2,6 +2,7 @@ using DataAccessLayer.Entities;
 using DataAccessLayer.UnitOfWork;
 using ErrorOr;
 using Microsoft.Extensions.Options;
+using ServiceLayer.Idempotency;
 using ServiceLayer.Shared;
 
 namespace ServiceLayer.Enrollments;
@@ -11,6 +12,7 @@ public sealed class CancelEnrollmentService(
     IDateTimeService dateTimeService,
     IPassValidationService passValidationService,
     IEnrollmentCardCacheService enrollmentCardCacheService,
+    IIdempotencyKeyHasher idempotencyKeyHasher,
     IOptions<EnrollmentCancellationOptions> options) : ICancelEnrollmentService
 {
     private readonly TimeSpan _refundCutoff = options.Value.RefundCutoff;
@@ -87,7 +89,9 @@ public sealed class CancelEnrollmentService(
                 waitingEntry.Status = WaitlistEntryStatuses.Promoted;
                 pass.RemainingVisits -= waitingEntry.Seats;
                 updatedUserIds.Add(pass.UserId);
-                unitOfWork.Enrollment.Create(CreatePromotedEnrollment(waitingEntry, now));
+                unitOfWork.Enrollment.Create(CreatePromotedEnrollment(
+                    waitingEntry,
+                    now));
 
                 remainingSeats -= waitingEntry.Seats;
                 if (remainingSeats == 0)
@@ -115,15 +119,19 @@ public sealed class CancelEnrollmentService(
         return CancelEnrollmentResult.FromEnrollment(enrollment);
     }
 
-    private static Enrollment CreatePromotedEnrollment(WaitlistEntry entry, DateTime now)
+    private Enrollment CreatePromotedEnrollment(WaitlistEntry entry, DateTime now)
     {
+        string idempotencyKeyHash = idempotencyKeyHasher.Hash($"waitlist-promotion:{entry.Id}");
+
         return new Enrollment
         {
             UserId = entry.UserId,
             ClassId = entry.ClassId,
             Seats = entry.Seats,
+            InitialSeats = entry.Seats,
             Status = EnrollmentStatuses.Active,
-            CreatedAt = now,
+            IdempotencyKeyHash = idempotencyKeyHash,
+            CreatedAt = now
         };
     }
 }

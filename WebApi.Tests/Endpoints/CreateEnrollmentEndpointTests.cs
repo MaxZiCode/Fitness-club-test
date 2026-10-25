@@ -44,6 +44,63 @@ public sealed class CreateEnrollmentEndpointTests
     }
 
     [TestMethod]
+    public async Task PostEnrollment_ReusingKeyAfterEnrollmentChangesReturnsCurrentEnrollmentWithoutChargingAgain()
+    {
+        const int initialSeats = 2;
+        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
+        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var idempotencyKey = Guid.NewGuid().ToString("N");
+
+        using var firstResponse = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+            client,
+            scenario.ClassId,
+            initialSeats,
+            idempotencyKey);
+        Assert.AreEqual(HttpStatusCode.Created, firstResponse.StatusCode);
+        using var firstBody = await JsonDocument.ParseAsync(await firstResponse.Content.ReadAsStreamAsync());
+        var originalId = firstBody.RootElement.GetProperty("id").GetInt64();
+        var originalCreatedAt = firstBody.RootElement.GetProperty("createdAt").GetDateTime();
+        Assert.AreEqual(initialSeats, firstBody.RootElement.GetProperty("seats").GetInt32());
+        Assert.AreEqual(EnrollmentStatuses.Active, firstBody.RootElement.GetProperty("status").GetString());
+
+        await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        {
+            var enrollment = await db.Enrollments.SingleAsync(x => x.Id == originalId);
+            enrollment.Seats = 1;
+            enrollment.Status = EnrollmentStatuses.Cancelled;
+            enrollment.CancelledAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return true;
+        });
+
+        using var replayResponse = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+            client,
+            scenario.ClassId,
+            initialSeats,
+            idempotencyKey);
+
+        Assert.AreEqual(HttpStatusCode.Created, replayResponse.StatusCode);
+        using var replayBody = await JsonDocument.ParseAsync(await replayResponse.Content.ReadAsStreamAsync());
+        var replay = replayBody.RootElement;
+        Assert.AreEqual(originalId, replay.GetProperty("id").GetInt64());
+        Assert.AreEqual(scenario.ClassId, replay.GetProperty("classId").GetInt64());
+        Assert.AreEqual(1, replay.GetProperty("seats").GetInt32());
+        Assert.AreEqual(EnrollmentStatuses.Cancelled, replay.GetProperty("status").GetString());
+        Assert.AreEqual(originalCreatedAt, replay.GetProperty("createdAt").GetDateTime());
+
+        var state = await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        {
+            var entries = await db.Enrollments.Where(x => x.UserId == scenario.UserId).ToListAsync();
+            var pass = await db.Passes.SingleAsync(x => x.UserId == scenario.UserId);
+            return (Entries: entries, RemainingVisits: pass.RemainingVisits);
+        });
+        Assert.AreEqual(1, state.Entries.Count);
+        Assert.AreEqual(originalId, state.Entries[0].Id);
+        Assert.AreEqual(initialSeats, state.Entries[0].InitialSeats);
+        Assert.AreEqual(3, state.RemainingVisits);
+    }
+
+    [TestMethod]
     public async Task PostEnrollment_WithoutIdempotencyKey_ReturnsBadRequest()
     {
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
