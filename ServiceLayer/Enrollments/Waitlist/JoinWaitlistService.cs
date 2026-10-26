@@ -90,9 +90,6 @@ public sealed class JoinWaitlistService(
         if (existing.ClassId != command.ClassId || existing.Seats != command.Seats)
             return IdempotencyErrors.PayloadMismatch;
 
-        // решение: соблюдаем идемпотентность возвращая состояние на момент создания.
-        existing.Status = WaitlistEntryStatuses.Waiting;
-
         return JoinWaitlistResult.FromEntry(existing);
     }
 }

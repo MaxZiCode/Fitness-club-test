@@ -1,7 +1,6 @@
 using DataAccessLayer.Entities;
 using DataAccessLayer.UnitOfWork;
 using ErrorOr;
-using ServiceLayer.Enrollments;
 
 namespace ServiceLayer.Enrollments.Waitlist;
 

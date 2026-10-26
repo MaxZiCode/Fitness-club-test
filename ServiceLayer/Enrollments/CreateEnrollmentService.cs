@@ -94,10 +94,11 @@ public sealed class CreateEnrollmentService(
         if (existing.ClassId != command.ClassId || existing.InitialSeats != command.Seats)
             return IdempotencyErrors.PayloadMismatch;
 
-        // решение: соблюдаем идемпотентность возвращая состояние на момент создания.
-        existing.Seats = existing.InitialSeats;
-        existing.Status = EnrollmentStatuses.Active;
-
-        return CreateEnrollmentResult.FromEnrollment(existing);
+        return new CreateEnrollmentResult(
+            existing.Id,
+            existing.ClassId,
+            existing.InitialSeats,
+            EnrollmentStatuses.Active,
+            existing.CreatedAt);
     }
 }
