@@ -51,15 +51,12 @@ public sealed class UpdateEnrollmentSeatsService(
             return EnrollmentCard.FromEnrollment(enrollment, pass);
         }
 
-        if (difference > 0)
-        {
-            enrollmentValidationResult = passValidationService.Validate(
-                pass,
-                difference,
-                DateOnly.FromDateTime(now));
-            if (enrollmentValidationResult.IsError)
-                return enrollmentValidationResult.Errors;
-        }
+        enrollmentValidationResult = passValidationService.ValidateEnrollmentUpdate(
+            pass,
+            difference,
+            DateOnly.FromDateTime(now));
+        if (enrollmentValidationResult.IsError)
+            return enrollmentValidationResult.Errors;
 
         pass.RemainingVisits -= difference;
 

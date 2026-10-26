@@ -8,7 +8,7 @@ public sealed class EnrollmentValidationService : IEnrollmentValidationService
     public ErrorOr<Success> Validate(Enrollment enrollment)
     {
         if (enrollment.Status == EnrollmentStatuses.Cancelled)
-            return Error.Conflict(EnrollmentErrors.Conflict.EnrollmentCancelled);
+            return EnrollmentErrors.EnrollmentCancelled;
 
         return Result.Success;
     }

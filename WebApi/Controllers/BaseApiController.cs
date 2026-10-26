@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
-using ServiceLayer.Idempotency;
 
 namespace WebApi.Controllers;
 
@@ -20,9 +19,6 @@ public abstract class BaseApiController : ControllerBase
         IReadOnlyDictionary<string, string>? errorCodeToParamName)
     {
         var error = errors[0];
-
-        if (error.Code == IdempotencyErrors.PayloadMismatch.Code)
-            return GetUnprocessableContentResult();
 
         return error.Type switch
         {
@@ -45,7 +41,7 @@ public abstract class BaseApiController : ControllerBase
                     ModelState.AddModelError(paramName, error.Description);
             });
         }
-        
+
 
         return ValidationProblem();
     }
@@ -58,11 +54,6 @@ public abstract class BaseApiController : ControllerBase
     private ObjectResult GetConflictResult(string reason)
     {
         return Problem(statusCode: 409, extensions: new Dictionary<string, object?>() { { "reason", reason } });
-    }
-
-    private ObjectResult GetUnprocessableContentResult()
-    {
-        return Problem(statusCode: 422);
     }
 
     private ObjectResult GetInternalServerErrorResult()

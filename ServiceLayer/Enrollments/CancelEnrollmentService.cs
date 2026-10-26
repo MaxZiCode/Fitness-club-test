@@ -42,7 +42,7 @@ public sealed class CancelEnrollmentService(
         var today = DateOnly.FromDateTime(now);
         var @class = classWithEnrollment.Class;
         if (!@class.IsCancelled && @class.StartsAt <= now)
-            return Error.Conflict(EnrollmentErrors.Conflict.ClassStarted);
+            return ClassErrors.ClassStarted;
 
         var refundedVisits = @class.IsCancelled || @class.StartsAt - now >= _refundCutoff
             ? enrollment.Seats
@@ -84,7 +84,7 @@ public sealed class CancelEnrollmentService(
         foreach (var (waitingEntry, pass) in entriesWithPasses)
         {
             if (waitingEntry.Seats <= remainingSeats
-                && passValidationService.Validate(pass, waitingEntry.Seats, today).IsSuccess)
+                && passValidationService.ValidateEnrollmentCreate(pass, waitingEntry.Seats, today).IsSuccess)
             {
                 waitingEntry.Status = WaitlistEntryStatuses.Promoted;
                 pass.RemainingVisits -= waitingEntry.Seats;

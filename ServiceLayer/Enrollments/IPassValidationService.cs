@@ -5,5 +5,6 @@ namespace ServiceLayer.Enrollments;
 
 public interface IPassValidationService
 {
-    ErrorOr<Success> Validate(Pass pass, int requestedSeats, DateOnly date);
+    ErrorOr<Success> ValidateEnrollmentCreate(Pass pass, int requestedSeats, DateOnly date);
+    ErrorOr<Success> ValidateEnrollmentUpdate(Pass pass, int difference, DateOnly date);
 }

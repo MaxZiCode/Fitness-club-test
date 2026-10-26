@@ -4,6 +4,7 @@ using System.Text.Json;
 using DataAccessLayer.Entities;
 using Microsoft.EntityFrameworkCore;
 using ServiceLayer.Enrollments;
+using ServiceLayer.Idempotency;
 
 namespace WebApi.Tests.Endpoints;
 
@@ -44,7 +45,7 @@ public sealed class CreateEnrollmentEndpointTests
     }
 
     [TestMethod]
-    public async Task PostEnrollment_ReusingKeyAfterEnrollmentChangesReturnsCurrentEnrollmentWithoutChargingAgain()
+    public async Task PostEnrollment_ReusingKeyAfterEnrollmentChangesReturnsInitialEnrollmentState()
     {
         const int initialSeats = 2;
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
@@ -84,8 +85,8 @@ public sealed class CreateEnrollmentEndpointTests
         var replay = replayBody.RootElement;
         Assert.AreEqual(originalId, replay.GetProperty("id").GetInt64());
         Assert.AreEqual(scenario.ClassId, replay.GetProperty("classId").GetInt64());
-        Assert.AreEqual(1, replay.GetProperty("seats").GetInt32());
-        Assert.AreEqual(EnrollmentStatuses.Cancelled, replay.GetProperty("status").GetString());
+        Assert.AreEqual(initialSeats, replay.GetProperty("seats").GetInt32());
+        Assert.AreEqual(EnrollmentStatuses.Active, replay.GetProperty("status").GetString());
         Assert.AreEqual(originalCreatedAt, replay.GetProperty("createdAt").GetDateTime());
 
         var state = await EnrollmentApiTestSupport.WithDbAsync(async db =>
@@ -223,21 +224,21 @@ public sealed class CreateEnrollmentEndpointTests
     public async Task PostEnrollment_WhenPassIsExhausted_ReturnsConflictReason()
     {
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 0);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.PassExhausted);
+        await AssertConflictAsync(scenario, PassErrors.PassExhausted.Code);
     }
 
     [TestMethod]
     public async Task PostEnrollment_WhenPassIsExpired_ReturnsConflictReason()
     {
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(validUntil: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.PassExpired);
+        await AssertConflictAsync(scenario, PassErrors.PassExpired.Code);
     }
 
     [TestMethod]
     public async Task PostEnrollment_WhenClassHasNoCapacity_ReturnsConflictReason()
     {
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(capacity: 1);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.CapacityExceeded, seats: 2);
+        await AssertConflictAsync(scenario, ClassErrors.CapacityExceeded.Code, seats: 2);
     }
 
     [TestMethod]
@@ -264,7 +265,7 @@ public sealed class CreateEnrollmentEndpointTests
             {
                 using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
                 Assert.AreEqual(
-                    EnrollmentErrors.Conflict.PassExhausted,
+                    PassErrors.PassExhausted.Code,
                     body.RootElement.GetProperty("reason").GetString());
             }
         }
@@ -320,7 +321,7 @@ public sealed class CreateEnrollmentEndpointTests
                 {
                     using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
                     Assert.AreEqual(
-                        EnrollmentErrors.Conflict.CapacityExceeded,
+                        ClassErrors.CapacityExceeded.Code,
                         body.RootElement.GetProperty("reason").GetString());
                 }
             }
@@ -355,18 +356,18 @@ public sealed class CreateEnrollmentEndpointTests
     public async Task PostEnrollment_WhenClassHasStarted_ReturnsConflictReason()
     {
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(startsAt: DateTime.UtcNow.AddMinutes(-2));
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.ClassStarted);
+        await AssertConflictAsync(scenario, ClassErrors.ClassStarted.Code);
     }
 
     [TestMethod]
     public async Task PostEnrollment_WhenClassIsCancelled_ReturnsConflictReason()
     {
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(isClassCancelled: true);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.ClassCancelled);
+        await AssertConflictAsync(scenario, ClassErrors.ClassCancelled.Code);
     }
 
     [TestMethod]
-    public async Task PostEnrollment_ReusingKeyWithDifferentPayload_ReturnsUnprocessableEntity()
+    public async Task PostEnrollment_ReusingKeyWithDifferentPayload_ReturnsConflictReason()
     {
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
         using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
@@ -384,7 +385,9 @@ public sealed class CreateEnrollmentEndpointTests
             idempotencyKey: key);
 
         Assert.AreEqual(HttpStatusCode.Created, first.StatusCode);
-        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, second.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Conflict, second.StatusCode);
+        using var secondBody = await JsonDocument.ParseAsync(await second.Content.ReadAsStreamAsync());
+        Assert.AreEqual(IdempotencyErrors.PayloadMismatch.Code, secondBody.RootElement.GetProperty("reason").GetString());
     }
 
     [TestMethod]

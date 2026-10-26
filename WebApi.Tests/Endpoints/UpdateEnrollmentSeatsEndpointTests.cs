@@ -180,14 +180,14 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_WhenCapacityIsExceeded_ReturnsConflictReason()
     {
         var scenario = await CreateBookedScenarioAsync(capacity: 1, initialSeats: 1);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.CapacityExceeded, requestedSeats: 2);
+        await AssertConflictAsync(scenario, ClassErrors.CapacityExceeded.Code, requestedSeats: 2);
     }
 
     [TestMethod]
     public async Task UpdateSeats_WhenPassIsExhausted_ReturnsConflictReason()
     {
         var scenario = await CreateBookedScenarioAsync(passVisits: 1, initialSeats: 1);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.PassExhausted, requestedSeats: 3);
+        await AssertConflictAsync(scenario, PassErrors.PassExhausted.Code, requestedSeats: 3);
     }
 
     [TestMethod]
@@ -196,7 +196,7 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
         var scenario = await CreateBookedScenarioAsync(
             validUntil: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1),
             initialSeats: 1);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.PassExpired, requestedSeats: 2);
+        await AssertConflictAsync(scenario, PassErrors.PassExpired.Code, requestedSeats: 2);
     }
 
     [TestMethod]
@@ -205,14 +205,14 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
         var scenario = await CreateBookedScenarioAsync(
             startsAt: DateTime.UtcNow.AddMinutes(-2),
             initialSeats: 1);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.ClassStarted, requestedSeats: 1);
+        await AssertConflictAsync(scenario, ClassErrors.ClassStarted.Code, requestedSeats: 1);
     }
 
     [TestMethod]
     public async Task UpdateSeats_WhenClassIsCancelled_ReturnsConflictReason()
     {
         var scenario = await CreateBookedScenarioAsync(isClassCancelled: true, initialSeats: 1);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.ClassCancelled, requestedSeats: 2);
+        await AssertConflictAsync(scenario, ClassErrors.ClassCancelled.Code, requestedSeats: 2);
     }
 
     [TestMethod]
@@ -221,7 +221,7 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
         var scenario = await CreateBookedScenarioAsync(
             initialSeats: 1,
             enrollmentStatus: EnrollmentStatuses.Cancelled);
-        await AssertConflictAsync(scenario, EnrollmentErrors.Conflict.EnrollmentCancelled, requestedSeats: 2);
+        await AssertConflictAsync(scenario, EnrollmentErrors.EnrollmentCancelled.Code, requestedSeats: 2);
     }
 
     [TestMethod]

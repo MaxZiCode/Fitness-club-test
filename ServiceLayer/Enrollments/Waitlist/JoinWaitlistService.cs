@@ -50,7 +50,7 @@ public sealed class JoinWaitlistService(
             command.UserId,
             cancellationToken);
         if (queueState.HasWaitingForUser)
-            return Error.Conflict(WaitlistErrors.Conflict.AlreadyWaiting);
+            return WaitlistErrors.AlreadyWaiting;
 
         var position = queueState.WaitingCount + 1;
         WaitlistEntry entry = CreateWaitlistEntry(command, keyHash, now, position);
@@ -85,8 +85,13 @@ public sealed class JoinWaitlistService(
         WaitlistEntry existing,
         JoinWaitlistCommand command)
     {
+        // решение: котракт диктует, что повторный запрос с тем же ключом и тем же телом возвращает тело первой брони.
+        // Вводим ошибку несовпадения тела запроса.
         if (existing.ClassId != command.ClassId || existing.Seats != command.Seats)
             return IdempotencyErrors.PayloadMismatch;
+
+        // решение: соблюдаем идемпотентность возвращая состояние на момент создания.
+        existing.Status = WaitlistEntryStatuses.Waiting;
 
         return JoinWaitlistResult.FromEntry(existing);
     }

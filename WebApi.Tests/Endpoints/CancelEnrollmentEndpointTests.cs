@@ -90,7 +90,7 @@ public sealed class CancelEnrollmentEndpointTests
 
         Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
-        Assert.AreEqual(EnrollmentErrors.Conflict.ClassStarted, body.RootElement.GetProperty("reason").GetString());
+        Assert.AreEqual(ClassErrors.ClassStarted.Code, body.RootElement.GetProperty("reason").GetString());
         var state = await GetStateAsync(scenario);
         Assert.AreEqual(3, state.RemainingVisits);
         Assert.AreEqual(EnrollmentStatuses.Active, state.Enrollments.Single().Status);

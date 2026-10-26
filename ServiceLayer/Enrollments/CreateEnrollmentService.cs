@@ -40,7 +40,7 @@ public sealed class CreateEnrollmentService(
             return Error.NotFound();
 
         var now = dateTimeService.GetNow();
-        var passValidationResult = passValidationService.Validate(
+        var passValidationResult = passValidationService.ValidateEnrollmentCreate(
             pass,
             command.Seats,
             DateOnly.FromDateTime(now));
@@ -56,7 +56,7 @@ public sealed class CreateEnrollmentService(
         if (classResult.IsError)
             return classResult.Errors;
 
-        ConsumePassVisits(pass, command.Seats);
+        pass.RemainingVisits -= command.Seats;
 
         var enrollment = CreateEnrollment(command, keyHash, now);
         unitOfWork.Enrollment.Create(enrollment);
@@ -66,11 +66,6 @@ public sealed class CreateEnrollmentService(
         await enrollmentCardCacheService.InvalidateEnrollmentsForUserAsync(command.UserId, ct);
 
         return CreateEnrollmentResult.FromEnrollment(enrollment);
-    }
-
-    private static void ConsumePassVisits(Pass pass, int seats)
-    {
-        pass.RemainingVisits -= seats;
     }
 
     private static Enrollment CreateEnrollment(
@@ -94,8 +89,14 @@ public sealed class CreateEnrollmentService(
         Enrollment existing,
         CreateEnrollmentCommand command)
     {
+        // решение: котракт диктует, что повторный запрос с тем же ключом и тем же телом возвращает тело первой брони.
+        // Вводим ошибку несовпадения тела запроса.
         if (existing.ClassId != command.ClassId || existing.InitialSeats != command.Seats)
             return IdempotencyErrors.PayloadMismatch;
+
+        // решение: соблюдаем идемпотентность возвращая состояние на момент создания.
+        existing.Seats = existing.InitialSeats;
+        existing.Status = EnrollmentStatuses.Active;
 
         return CreateEnrollmentResult.FromEnrollment(existing);
     }

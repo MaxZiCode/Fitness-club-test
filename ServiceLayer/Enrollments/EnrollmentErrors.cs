@@ -1,14 +1,10 @@
+using ErrorOr;
+
 namespace ServiceLayer.Enrollments;
 
 public static class EnrollmentErrors
 {
-    public static class Conflict
-    {
-        public const string CapacityExceeded = "capacity-exceeded";
-        public const string PassExhausted = "pass-exhausted";
-        public const string PassExpired = "pass-expired";
-        public const string ClassStarted = "class-started";
-        public const string ClassCancelled = "class-cancelled";
-        public const string EnrollmentCancelled = "enrollment-cancelled";
-    }
+    public static readonly Error EnrollmentCancelled = Error.Conflict(
+        code: "enrollment-cancelled",
+        description: "The enrollment has already been cancelled.");
 }

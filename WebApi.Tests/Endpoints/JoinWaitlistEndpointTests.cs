@@ -5,6 +5,7 @@ using DataAccessLayer.Entities;
 using Microsoft.EntityFrameworkCore;
 using ServiceLayer.Enrollments;
 using ServiceLayer.Enrollments.Waitlist;
+using ServiceLayer.Idempotency;
 
 namespace WebApi.Tests.Endpoints;
 
@@ -134,7 +135,7 @@ public sealed class JoinWaitlistEndpointTests
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(capacity: 4);
         using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        await AssertConflictAsync(client, scenario.ClassId, seats: 1, WaitlistErrors.Conflict.SeatsAvailable);
+        await AssertConflictAsync(client, scenario.ClassId, seats: 1, WaitlistErrors.SeatsAvailable.Code);
     }
 
     [TestMethod]
@@ -146,7 +147,7 @@ public sealed class JoinWaitlistEndpointTests
         using var first = await EnrollmentApiTestSupport.PostWaitlistAsync(client, classId, 1, NewKey());
         Assert.AreEqual(HttpStatusCode.Created, first.StatusCode);
 
-        await AssertConflictAsync(client, classId, seats: 2, WaitlistErrors.Conflict.AlreadyWaiting);
+        await AssertConflictAsync(client, classId, seats: 2, WaitlistErrors.AlreadyWaiting.Code);
     }
 
     [TestMethod]
@@ -156,7 +157,7 @@ public sealed class JoinWaitlistEndpointTests
             startsAt: DateTime.UtcNow.AddMinutes(-1), capacity: 1);
         using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        await AssertConflictAsync(client, scenario.ClassId, seats: 1, EnrollmentErrors.Conflict.ClassStarted);
+        await AssertConflictAsync(client, scenario.ClassId, seats: 1, ClassErrors.ClassStarted.Code);
     }
 
     [TestMethod]
@@ -165,7 +166,32 @@ public sealed class JoinWaitlistEndpointTests
         var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(isClassCancelled: true, capacity: 1);
         using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        await AssertConflictAsync(client, scenario.ClassId, seats: 1, EnrollmentErrors.Conflict.ClassCancelled);
+        await AssertConflictAsync(client, scenario.ClassId, seats: 1, ClassErrors.ClassCancelled.Code);
+    }
+
+    [TestMethod]
+    public async Task PostEnrollment_ReusingKeyWithDifferentPayload_ReturnsConflictReason()
+    {
+        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
+        var classId = await CreateFullClassAsync(scenario.UserId);
+        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var key = Guid.NewGuid().ToString("N");
+
+        using var first = await EnrollmentApiTestSupport.PostWaitlistAsync(
+            client,
+            classId,
+            seats: 1,
+            idempotencyKey: key);
+        using var second = await EnrollmentApiTestSupport.PostWaitlistAsync(
+            client,
+            classId,
+            seats: 2,
+            idempotencyKey: key);
+
+        Assert.AreEqual(HttpStatusCode.Created, first.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Conflict, second.StatusCode);
+        using var secondBody = await JsonDocument.ParseAsync(await second.Content.ReadAsStreamAsync());
+        Assert.AreEqual(IdempotencyErrors.PayloadMismatch.Code, secondBody.RootElement.GetProperty("reason").GetString());
     }
 
     [TestMethod]

@@ -12,11 +12,8 @@ public sealed class ClassValidationService : IClassValidationService
         int seatsDiff,
         DateTime now)
     {
-        var classStateResult = ValidateClassState(@class, now);
-        if (classStateResult.IsError)
-            return classStateResult.Errors;
-
-        return ValidateEnrollmentCapacity(@class, bookedSeats, seatsDiff);
+        return ValidateClassState(@class, now)
+            .ThenEnsure(_ => ValidateEnrollmentCapacity(@class, bookedSeats, seatsDiff));
     }
 
     public ErrorOr<Success> ValidateWaitlist(
@@ -25,20 +22,17 @@ public sealed class ClassValidationService : IClassValidationService
         int requestedSeats,
         DateTime now)
     {
-        var classStateResult = ValidateClassState(@class, now);
-        if (classStateResult.IsError)
-            return classStateResult.Errors;
-
-        return ValidateWaitlistCapacity(@class, bookedSeats, requestedSeats);
+        return ValidateClassState(@class, now)
+            .ThenEnsure(_ => ValidateWaitlistCapacity(@class, bookedSeats, requestedSeats));
     }
 
     private static ErrorOr<Success> ValidateClassState(Class @class, DateTime now)
     {
         if (@class.IsCancelled)
-            return Error.Conflict(EnrollmentErrors.Conflict.ClassCancelled);
+            return ClassErrors.ClassCancelled;
 
         if (@class.StartsAt <= now)
-            return Error.Conflict(EnrollmentErrors.Conflict.ClassStarted);
+            return ClassErrors.ClassStarted;
 
         return Result.Success;
     }
@@ -49,7 +43,7 @@ public sealed class ClassValidationService : IClassValidationService
         int seatsDiff)
     {
         if (seatsDiff > 0 && seatsDiff > @class.Capacity - bookedSeats)
-            return Error.Conflict(EnrollmentErrors.Conflict.CapacityExceeded);
+            return ClassErrors.CapacityExceeded;
 
         return Result.Success;
     }
@@ -60,7 +54,7 @@ public sealed class ClassValidationService : IClassValidationService
         int requestedSeats)
     {
         if (requestedSeats <= @class.Capacity - bookedSeats)
-            return Error.Conflict(WaitlistErrors.Conflict.SeatsAvailable);
+            return WaitlistErrors.SeatsAvailable;
 
         return Result.Success;
     }
