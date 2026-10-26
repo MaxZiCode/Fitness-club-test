@@ -31,6 +31,16 @@ public class EnrollmentRepository : GenericRepository<Enrollment>, IEnrollmentRe
             .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
     }
 
+    public async Task<Enrollment?> GetByIdAndUserAsync(
+        long id,
+        long userId,
+        CancellationToken ct = default)
+    {
+        return await _dbSet
+            .Where(enrollment => enrollment.Id == id && enrollment.UserId == userId)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<Enrollment?> GetByUserAndIdempotencyKeyHashAsync(
         long userId,
         string idempotencyKeyHash,

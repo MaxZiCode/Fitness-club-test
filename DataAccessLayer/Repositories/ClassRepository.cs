@@ -88,7 +88,6 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
             .FromSqlInterpolated($"SELECT * FROM classes WHERE id = {id} FOR NO KEY UPDATE")
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Include(x => x.Room)
             .FirstOrDefaultAsync(ct);
     }
 
@@ -103,36 +102,26 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<ClassWithEnrollmentAndBookedSeats?> GetLockedClassWithEnrollmentAndBookedSeatsByEnrollmentAndUserIgnoringFiltersAsync(
+    public async Task<Class?> GetLockedByEnrollmentAndUserIgnoringFiltersAsync(
         long enrollmentId,
         long userId,
         CancellationToken ct = default)
     {
-        return await GetLockedClassByEnrollmentAndUserIgnoringFilters(enrollmentId, userId)
-            .Select(@class => new ClassWithEnrollmentAndBookedSeats(
-                @class,
-                @class.Enrollments
-                    .Where(enrollment => enrollment.Status == EnrollmentStatuses.Active)
-                    .Sum(enrollment => enrollment.Seats),
-                @class.Enrollments.First(enrollment =>
-                    enrollment.Id == enrollmentId && enrollment.UserId == userId)))
+        return await GetLockedByEnrollmentAndUserIgnoringFiltersQuery(enrollmentId, userId)
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<ClassWithEnrollment?> GetLockedClassWithEnrollmentByEnrollmentAndUserIgnoringFiltersAsync(
+    public async Task<Class?> GetLockedByEnrollmentAndUserIgnoringFiltersWithRoomAsync(
         long enrollmentId,
         long userId,
         CancellationToken ct = default)
     {
-        return await GetLockedClassByEnrollmentAndUserIgnoringFilters(enrollmentId, userId)
-            .Select(@class => new ClassWithEnrollment(
-                @class,
-                @class.Enrollments.First(enrollment =>
-                    enrollment.Id == enrollmentId && enrollment.UserId == userId)))
+        return await GetLockedByEnrollmentAndUserIgnoringFiltersQuery(enrollmentId, userId)
+            .Include(x => x.Room)
             .FirstOrDefaultAsync(ct);
     }
 
-    private IQueryable<Class> GetLockedClassByEnrollmentAndUserIgnoringFilters(long enrollmentId, long userId)
+    private IQueryable<Class> GetLockedByEnrollmentAndUserIgnoringFiltersQuery(long enrollmentId, long userId)
     {
         return _dbSet
             .FromSqlInterpolated($"""
@@ -146,7 +135,6 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
                         AND e.user_id = {userId})
                 FOR NO KEY UPDATE OF c
                 """)
-            .IgnoreQueryFilters()
-            .Include(x => x.Room);
+            .IgnoreQueryFilters();
     }
 }

@@ -11,12 +11,7 @@ public interface IClassRepository : IGenericRepository<Class>
 
     Task<int> GetBookedSeatsAsync(long classId, CancellationToken ct = default);
 
-    Task<ClassWithEnrollmentAndBookedSeats?> GetLockedClassWithEnrollmentAndBookedSeatsByEnrollmentAndUserIgnoringFiltersAsync(
-        long enrollmentId,
-        long userId,
-        CancellationToken ct = default);
-
-    Task<ClassWithEnrollment?> GetLockedClassWithEnrollmentByEnrollmentAndUserIgnoringFiltersAsync(
+    Task<Class?> GetLockedByEnrollmentAndUserIgnoringFiltersAsync(
         long enrollmentId,
         long userId,
         CancellationToken ct = default);
@@ -36,4 +31,5 @@ public interface IClassRepository : IGenericRepository<Class>
         DateTime toUtcExclusive,
         long? roomId,
         CancellationToken ct = default);
+    Task<Class?> GetLockedByEnrollmentAndUserIgnoringFiltersWithRoomAsync(long enrollmentId, long userId, CancellationToken ct = default);
 }

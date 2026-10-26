@@ -28,10 +28,13 @@ public class PassRepository : GenericRepository<Pass>, IPassRepository
         return GetRequiredPassAsync(query, userId, ct);
     }
 
-    public Task<List<Pass>> GetLockedByUserIdsAsync(
+    public async Task<List<Pass>> GetLockedByUserIdsAsync(
         IReadOnlyCollection<long> userIds,
         CancellationToken ct = default)
     {
+        if (userIds.Count == 0)
+            return [];
+
         var query = _dbSet.FromSqlInterpolated($"""
             SELECT p.*
             FROM passes AS p
@@ -40,7 +43,7 @@ public class PassRepository : GenericRepository<Pass>, IPassRepository
             FOR NO KEY UPDATE
             """);
 
-        return query.ToListAsync(ct);
+        return await query.ToListAsync(ct);
     }
 
     private static async Task<Pass> GetRequiredPassAsync(

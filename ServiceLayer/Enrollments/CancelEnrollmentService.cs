@@ -23,15 +23,19 @@ public sealed class CancelEnrollmentService(
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
 
-        var classWithEnrollment = await unitOfWork.Class
-            .GetLockedClassWithEnrollmentAndBookedSeatsByEnrollmentAndUserIgnoringFiltersAsync(
+        var @class = await unitOfWork.Class
+            .GetLockedByEnrollmentAndUserIgnoringFiltersAsync(
                 command.EnrollmentId,
                 command.UserId,
                 ct);
-        if (classWithEnrollment is null)
+        if (@class is null)
             return Error.NotFound();
 
-        var enrollment = classWithEnrollment.Enrollment;
+        var enrollment = await unitOfWork.Enrollment
+            .GetByIdAndUserAsync(command.EnrollmentId, command.UserId, ct);
+        if (enrollment is null)
+            return Error.NotFound();
+
         if (enrollment.Status == EnrollmentStatuses.Cancelled)
         {
             await transaction.CommitAsync(ct);
@@ -40,7 +44,6 @@ public sealed class CancelEnrollmentService(
 
         var now = dateTimeService.GetNow();
         var today = DateOnly.FromDateTime(now);
-        var @class = classWithEnrollment.Class;
         if (!@class.IsCancelled && @class.StartsAt <= now)
             return ClassErrors.ClassStarted;
 
@@ -48,29 +51,31 @@ public sealed class CancelEnrollmentService(
             ? enrollment.Seats
             : 0;
 
-        int freeSeats = @class.Capacity - (classWithEnrollment.BookedSeats - enrollment.Seats);
-        var waitingEntries = !@class.IsCancelled && freeSeats > 0
-            ? await unitOfWork.WaitlistEntry.GetWaitingEntriesForPromotionAsync(
-                @class.Id,
-                freeSeats,
-                command.UserId,
-                enrollment.Seats,
-                today,
-                ct)
-            : [];
+        int freeSeats = 0;
+        List<WaitlistEntry> waitingEntries = [];
+        if (!@class.IsCancelled)
+        {
+            var bookedSeats = await unitOfWork.Class.GetBookedSeatsAsync(@class.Id, ct);
+            freeSeats = @class.Capacity - (bookedSeats - enrollment.Seats);
+            if (freeSeats > 0)
+            {
+                waitingEntries = await unitOfWork.WaitlistEntry.GetWaitingEntriesForPromotionAsync(
+                    @class.Id,
+                    freeSeats,
+                    command.UserId,
+                    enrollment.Seats,
+                    today,
+                    ct);
+            }
+        }
 
         var passLockUserIds = waitingEntries.Select(x => x.UserId).ToHashSet();
         if (refundedVisits > 0)
             passLockUserIds.Add(command.UserId);
 
-        var lockedPasses = passLockUserIds.Count > 0
-            ? await unitOfWork.Pass.GetLockedByUserIdsAsync(
-                passLockUserIds,
-                ct)
-            : [];
-
-        var entriesWithPasses = waitingEntries.Join(lockedPasses, e => e.UserId, p => p.UserId,
-            (e, p) => (waitingEntry: e, pass: p));
+        var lockedPasses = await unitOfWork.Pass.GetLockedByUserIdsAsync(
+            passLockUserIds,
+            ct);
 
         HashSet<long> updatedUserIds = [];
         if (refundedVisits > 0)
@@ -80,23 +85,9 @@ public sealed class CancelEnrollmentService(
             updatedUserIds.Add(userPass.UserId);
         }
 
-        int remainingSeats = freeSeats;
-        foreach (var (waitingEntry, pass) in entriesWithPasses)
+        if (freeSeats > 0 && waitingEntries.Count > 0)
         {
-            if (waitingEntry.Seats <= remainingSeats
-                && passValidationService.ValidateEnrollmentCreate(pass, waitingEntry.Seats, today).IsSuccess)
-            {
-                waitingEntry.Status = WaitlistEntryStatuses.Promoted;
-                pass.RemainingVisits -= waitingEntry.Seats;
-                updatedUserIds.Add(pass.UserId);
-                unitOfWork.Enrollment.Create(CreatePromotedEnrollment(
-                    waitingEntry,
-                    now));
-
-                remainingSeats -= waitingEntry.Seats;
-                if (remainingSeats == 0)
-                    break;
-            }
+            PromoteWaitingEntries(now, today, freeSeats, waitingEntries, lockedPasses, updatedUserIds);
         }
 
         enrollment.Status = EnrollmentStatuses.Cancelled;
@@ -117,6 +108,30 @@ public sealed class CancelEnrollmentService(
         }
 
         return CancelEnrollmentResult.FromEnrollment(enrollment);
+    }
+
+    private void PromoteWaitingEntries(DateTime now, DateOnly today, int freeSeats, List<WaitlistEntry> waitingEntries, List<Pass> lockedPasses, HashSet<long> updatedUserIds)
+    {
+        int remainingSeats = freeSeats;
+        var entriesWithPasses = waitingEntries.Join(lockedPasses, e => e.UserId, p => p.UserId,
+            (e, p) => (waitingEntry: e, pass: p));
+        foreach (var (waitingEntry, pass) in entriesWithPasses)
+        {
+            if (waitingEntry.Seats <= remainingSeats
+                && passValidationService.ValidateEnrollmentCreate(pass, waitingEntry.Seats, today).IsSuccess)
+            {
+                waitingEntry.Status = WaitlistEntryStatuses.Promoted;
+                pass.RemainingVisits -= waitingEntry.Seats;
+                updatedUserIds.Add(pass.UserId);
+                unitOfWork.Enrollment.Create(CreatePromotedEnrollment(
+                    waitingEntry,
+                    now));
+
+                remainingSeats -= waitingEntry.Seats;
+                if (remainingSeats == 0)
+                    break;
+            }
+        }
     }
 
     private Enrollment CreatePromotedEnrollment(WaitlistEntry entry, DateTime now)

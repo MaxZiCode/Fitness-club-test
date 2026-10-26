@@ -38,13 +38,16 @@ public sealed class EnrollmentCardCacheService(
         IReadOnlyCollection<long> userIds,
         CancellationToken ct = default)
     {
-        if (userIds.Count == 1)
+        if (userIds.Count == 0) return;
+
+        var uniqueUserIds = userIds.Distinct().ToArray();
+        if (uniqueUserIds.Length == 1)
         {
-            await InvalidateEnrollmentsForUserAsync(userIds.First(), ct);
+            await InvalidateEnrollmentsForUserAsync(uniqueUserIds[0], ct);
             return;
         }
 
-        var keys = userIds
+        var keys = uniqueUserIds
             .Select(GetUserVersionKey)
             .ToArray();
 
