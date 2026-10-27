@@ -10,7 +10,7 @@ public interface IWaitlistEntryRepository : IGenericRepository<WaitlistEntry>
         string idempotencyKeyHash,
         CancellationToken ct = default);
 
-    Task<WaitlistEntry?> GetByIdAndUserWithClassLockAsync(
+    Task<WaitlistEntry?> GetByIdAndUserAsync(
         long id,
         long userId,
         CancellationToken ct = default);

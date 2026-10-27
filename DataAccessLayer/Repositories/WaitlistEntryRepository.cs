@@ -21,20 +21,13 @@ public class WaitlistEntryRepository : GenericRepository<WaitlistEntry>, IWaitli
             ct);
     }
 
-    public async Task<WaitlistEntry?> GetByIdAndUserWithClassLockAsync(
+    public async Task<WaitlistEntry?> GetByIdAndUserAsync(
         long id,
         long userId,
         CancellationToken ct = default)
     {
         return await _dbSet
-            .FromSqlInterpolated($"""
-                SELECT w.*
-                FROM waitlist_entries AS w
-                INNER JOIN classes AS c ON c.id = w.class_id
-                WHERE w.id = {id} AND w.user_id = {userId}
-                FOR NO KEY UPDATE OF c
-                """)
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
     }
 
     public async Task<WaitlistQueueState> GetWaitingCountAndUserWaitingStatusAsync(

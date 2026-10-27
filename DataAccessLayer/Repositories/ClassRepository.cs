@@ -135,6 +135,29 @@ public class ClassRepository : GenericRepository<Class>, IClassRepository
                         AND e.user_id = {userId})
                 FOR NO KEY UPDATE OF c
                 """)
+            .AsNoTracking()
             .IgnoreQueryFilters();
+    }
+
+    public Task<Class?> GetLockedByWaitlistEntryAndUserIgnoringFiltersAsync(
+        long waitlistEntryId,
+        long userId,
+        CancellationToken ct = default)
+    {
+        return _dbSet
+            .FromSqlInterpolated($"""
+                SELECT c.*
+                FROM classes AS c
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM waitlist_entries AS e
+                    WHERE e.class_id = c.id
+                        AND e.id = {waitlistEntryId}
+                        AND e.user_id = {userId})
+                FOR NO KEY UPDATE OF c
+                """)
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(ct);
     }
 }

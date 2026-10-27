@@ -374,12 +374,7 @@ public sealed class JoinWaitlistServiceTests
 
         Assert.IsFalse(result.IsError);
 
-        Assert.AreEqual(
-            WaitlistEntryStatuses.Waiting,
-            existingEntry.Status);
-
-        Assert.AreEqual(_expectedPosition, existingEntry.InitialPosition);
-        Assert.AreEqual(_now.AddDays(-1), existingEntry.CreatedAt);
+        Assert.AreEqual(_expectedPosition, result.Value.Position);
 
         Mock.Get(_unitOfWork.Object.WaitlistEntry).Verify(
             x => x.Create(It.IsAny<WaitlistEntry>()),

@@ -32,4 +32,5 @@ public interface IClassRepository : IGenericRepository<Class>
         long? roomId,
         CancellationToken ct = default);
     Task<Class?> GetLockedByEnrollmentAndUserIgnoringFiltersWithRoomAsync(long enrollmentId, long userId, CancellationToken ct = default);
+    Task<Class?> GetLockedByWaitlistEntryAndUserIgnoringFiltersAsync(long waitlistEntryId, long userId, CancellationToken ct = default);
 }

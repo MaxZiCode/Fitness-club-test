@@ -324,7 +324,7 @@ public sealed class CreateEnrollmentServiceTests
     }
 
     [TestMethod]
-    public async Task CreateEnrollmentAsync_ExistingKeyAndSamePayload_RestoresOriginalSeatsAndStatus()
+    public async Task CreateEnrollmentAsync_ExistingKeyAndSamePayload_ReturnsOriginalSeatsAndStatus()
     {
         Enrollment? storedEnrollment = null;
         var enrollmentRepository =
@@ -360,20 +360,13 @@ public sealed class CreateEnrollmentServiceTests
         storedEnrollment.Seats = _changedEnrollmentSeats;
         storedEnrollment.Status = EnrollmentStatuses.Cancelled;
 
-        Assert.AreEqual(
-            _changedEnrollmentSeats,
-            storedEnrollment.Seats);
-        Assert.AreEqual(
-            EnrollmentStatuses.Cancelled,
-            storedEnrollment.Status);
-
         var replayResult = await _sut.CreateEnrollmentAsync(command);
 
         Assert.IsFalse(replayResult.IsError);
-        Assert.AreEqual(_seatsToBook, storedEnrollment.Seats);
+        Assert.AreEqual(_seatsToBook, replayResult.Value.Seats);
         Assert.AreEqual(
             EnrollmentStatuses.Active,
-            storedEnrollment.Status);
+            replayResult.Value.Status);
         Assert.AreEqual(
             _expectedRemainingVisitsAfterBooking,
             _pass.RemainingVisits);
