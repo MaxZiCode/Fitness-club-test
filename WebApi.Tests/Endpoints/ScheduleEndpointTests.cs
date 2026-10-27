@@ -12,11 +12,11 @@ public sealed class ScheduleEndpointTests
     public async Task GetSchedule_ReturnsSortedItemsAndCorrectSeatCounts()
     {
         var data = await CreateScheduleDataAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetScheduleAsync(
+        using var response = await ApiTestSupport.GetScheduleAsync(
             client,
-            EnrollmentApiTestSupport.ScheduleQuery(data.From, data.To));
+            ApiTestSupport.ScheduleQuery(data.From, data.To));
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -41,20 +41,20 @@ public sealed class ScheduleEndpointTests
     public async Task GetSchedule_FiltersByRoomAndUnknownRoomReturnsEmptyList()
     {
         var data = await CreateScheduleDataAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
 
-        using var filteredResponse = await EnrollmentApiTestSupport.GetScheduleAsync(
+        using var filteredResponse = await ApiTestSupport.GetScheduleAsync(
             client,
-            EnrollmentApiTestSupport.ScheduleQuery(data.From, data.To, roomId: data.FirstAtFrom.RoomId));
+            ApiTestSupport.ScheduleQuery(data.From, data.To, roomId: data.FirstAtFrom.RoomId));
         Assert.AreEqual(HttpStatusCode.OK, filteredResponse.StatusCode);
         using var filteredBody = await JsonDocument.ParseAsync(await filteredResponse.Content.ReadAsStreamAsync());
         var filteredItems = filteredBody.RootElement.GetProperty("items").EnumerateArray().ToArray();
         Assert.AreEqual(4, filteredItems.Length);
         Assert.IsTrue(filteredItems.All(x => x.GetProperty("room").GetProperty("id").GetInt64() == data.FirstAtFrom.RoomId));
 
-        using var missingRoomResponse = await EnrollmentApiTestSupport.GetScheduleAsync(
+        using var missingRoomResponse = await ApiTestSupport.GetScheduleAsync(
             client,
-            EnrollmentApiTestSupport.ScheduleQuery(data.From, data.To, roomId: long.MaxValue));
+            ApiTestSupport.ScheduleQuery(data.From, data.To, roomId: long.MaxValue));
         Assert.AreEqual(HttpStatusCode.OK, missingRoomResponse.StatusCode);
         using var missingRoomBody = await JsonDocument.ParseAsync(await missingRoomResponse.Content.ReadAsStreamAsync());
         Assert.AreEqual(0, missingRoomBody.RootElement.GetProperty("items").GetArrayLength());
@@ -65,15 +65,15 @@ public sealed class ScheduleEndpointTests
     public async Task GetSchedule_ContinuationTokenReturnsNonOverlappingPagesInOrder()
     {
         var data = await CreateScheduleDataAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
         var classIds = new List<long>();
         string? token = null;
 
         for (var pageNumber = 0; pageNumber < 3; pageNumber++)
         {
-            using var response = await EnrollmentApiTestSupport.GetScheduleAsync(
+            using var response = await ApiTestSupport.GetScheduleAsync(
                 client,
-                EnrollmentApiTestSupport.ScheduleQuery(
+                ApiTestSupport.ScheduleQuery(
                     data.From,
                     data.To,
                     limit: 2,
@@ -116,8 +116,8 @@ public sealed class ScheduleEndpointTests
     [DataRow("reversedPeriod")]
     public async Task GetSchedule_WithInvalidParameters_ReturnsBadRequest(string invalidCase)
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var from = DateTime.UtcNow.AddDays(3);
         var to = from.AddDays(1);
         var fromValue = Uri.EscapeDataString(from.ToString("O", CultureInfo.InvariantCulture));
@@ -137,7 +137,7 @@ public sealed class ScheduleEndpointTests
             _ => throw new ArgumentOutOfRangeException(nameof(invalidCase), invalidCase, null)
         };
 
-        using var response = await EnrollmentApiTestSupport.GetScheduleAsync(client, query);
+        using var response = await ApiTestSupport.GetScheduleAsync(client, query);
 
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, invalidCase);
     }
@@ -146,12 +146,12 @@ public sealed class ScheduleEndpointTests
     public async Task GetSchedule_ExceedingUserRateLimit_ReturnsTooManyRequests()
     {
         var data = await CreateScheduleDataAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
-        var query = EnrollmentApiTestSupport.ScheduleQuery(data.From, data.To);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(data.User.Email);
+        var query = ApiTestSupport.ScheduleQuery(data.From, data.To);
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
-            using var response = await EnrollmentApiTestSupport.GetScheduleAsync(client, query);
+            using var response = await ApiTestSupport.GetScheduleAsync(client, query);
             var expectedStatus = requestNumber < 60
                 ? HttpStatusCode.OK
                 : HttpStatusCode.TooManyRequests;
@@ -161,36 +161,36 @@ public sealed class ScheduleEndpointTests
 
     private static async Task<ScheduleData> CreateScheduleDataAsync()
     {
-        var user = await EnrollmentApiTestSupport.CreateScenarioAsync(startsAt: DateTime.UtcNow.AddDays(1));
-        var otherUser = await EnrollmentApiTestSupport.CreateScenarioAsync(startsAt: DateTime.UtcNow.AddDays(1));
+        var user = await ApiTestSupport.CreateScenarioAsync(startsAt: DateTime.UtcNow.AddDays(1));
+        var otherUser = await ApiTestSupport.CreateScenarioAsync(startsAt: DateTime.UtcNow.AddDays(1));
 
         var from = TruncateToDatabasePrecision(DateTime.UtcNow.AddDays(100 + user.UserId * 3));
         var to = from.AddDays(2);
 
-        var first = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var first = await ApiTestSupport.CreateScheduleClassAsync(
             "First at boundary", from, capacity: 8, roomName: "Studio A");
-        var second = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var second = await ApiTestSupport.CreateScheduleClassAsync(
             "Second at boundary", from, capacity: 4, roomName: "Studio A", roomId: first.RoomId);
-        var overbooked = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var overbooked = await ApiTestSupport.CreateScheduleClassAsync(
             "Overbooked legacy class", from.AddHours(1), capacity: 2, roomName: "Studio A", roomId: first.RoomId);
-        var otherRoom = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var otherRoom = await ApiTestSupport.CreateScheduleClassAsync(
             "Other room class", from.AddHours(2), capacity: 5, roomName: "Studio B");
-        var last = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var last = await ApiTestSupport.CreateScheduleClassAsync(
             "Last before exclusive boundary", to.AddHours(-1), capacity: 3, roomName: "Studio A", roomId: first.RoomId);
-        var atTo = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var atTo = await ApiTestSupport.CreateScheduleClassAsync(
             "At exclusive boundary", to, capacity: 5, roomName: "Studio A", roomId: first.RoomId);
-        var beforeFrom = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var beforeFrom = await ApiTestSupport.CreateScheduleClassAsync(
             "Before inclusive boundary", from.AddTicks(-10), capacity: 5, roomName: "Studio A", roomId: first.RoomId);
-        var cancelled = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var cancelled = await ApiTestSupport.CreateScheduleClassAsync(
             "Cancelled class", from.AddHours(3), capacity: 5, roomName: "Studio A",
             isCancelled: true, roomId: first.RoomId);
 
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(user.UserId, first.ClassId, 2);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(user.UserId, first.ClassId, 1);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(user.UserId, first.ClassId, 4, EnrollmentStatuses.Cancelled);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, first.ClassId, 2);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, second.ClassId, 4);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, overbooked.ClassId, 3);
+        await ApiTestSupport.AddEnrollmentAsync(user.UserId, first.ClassId, 2);
+        await ApiTestSupport.AddEnrollmentAsync(user.UserId, first.ClassId, 1);
+        await ApiTestSupport.AddEnrollmentAsync(user.UserId, first.ClassId, 4, EnrollmentStatuses.Cancelled);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, first.ClassId, 2);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, second.ClassId, 4);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, overbooked.ClassId, 3);
 
         return new ScheduleData(user, from, to, first, second, overbooked, otherRoom, last,
             atTo, beforeFrom, cancelled);

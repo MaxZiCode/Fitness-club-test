@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace WebApi.Tests;
 
-internal static class EnrollmentApiTestSupport
+internal static class ApiTestSupport
 {
     private const string TestPassword = "TestPassword123!";
 

@@ -18,7 +18,7 @@ public interface IClassRepository : IGenericRepository<Class>
 
     Task<List<ScheduleClassRow>> GetSchedulePageNoTrackingAsync(
         DateTime from,
-        DateTime to,
+        DateTime toExclusive,
         long? roomId,
         long userId,
         DateTime? afterStartsAt,

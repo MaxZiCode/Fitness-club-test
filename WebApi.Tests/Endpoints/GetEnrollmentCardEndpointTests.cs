@@ -11,9 +11,9 @@ public sealed class GetEnrollmentCardEndpointTests
     public async Task GetEnrollmentCard_ReturnsCompleteCardForActiveEnrollment()
     {
         var scenario = await CreateCardScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetEnrollmentCardAsync(client, scenario.EnrollmentId);
+        using var response = await ApiTestSupport.GetEnrollmentCardAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -24,9 +24,9 @@ public sealed class GetEnrollmentCardEndpointTests
     public async Task GetEnrollmentCard_ReturnsCancelledEnrollment()
     {
         var scenario = await CreateCardScenarioAsync(enrollmentStatus: EnrollmentStatuses.Cancelled);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetEnrollmentCardAsync(client, scenario.EnrollmentId);
+        using var response = await ApiTestSupport.GetEnrollmentCardAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -37,9 +37,9 @@ public sealed class GetEnrollmentCardEndpointTests
     public async Task GetEnrollmentCard_ReturnsEnrollmentForCancelledClass()
     {
         var scenario = await CreateCardScenarioAsync(isClassCancelled: true);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetEnrollmentCardAsync(client, scenario.EnrollmentId);
+        using var response = await ApiTestSupport.GetEnrollmentCardAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -49,10 +49,10 @@ public sealed class GetEnrollmentCardEndpointTests
     [TestMethod]
     public async Task GetEnrollmentCard_WhenEnrollmentDoesNotExist_ReturnsNotFound()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetEnrollmentCardAsync(client, long.MaxValue);
+        using var response = await ApiTestSupport.GetEnrollmentCardAsync(client, long.MaxValue);
 
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -61,10 +61,10 @@ public sealed class GetEnrollmentCardEndpointTests
     public async Task GetEnrollmentCard_ForAnotherUser_ReturnsNotFound()
     {
         var owner = await CreateCardScenarioAsync();
-        var otherUser = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
+        var otherUser = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetEnrollmentCardAsync(client, owner.EnrollmentId);
+        using var response = await ApiTestSupport.GetEnrollmentCardAsync(client, owner.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -73,11 +73,11 @@ public sealed class GetEnrollmentCardEndpointTests
     public async Task GetEnrollmentCard_ExceedingUserRateLimit_ReturnsTooManyRequests()
     {
         var scenario = await CreateCardScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
-            using var response = await EnrollmentApiTestSupport.GetEnrollmentCardAsync(
+            using var response = await ApiTestSupport.GetEnrollmentCardAsync(
                 client,
                 scenario.EnrollmentId);
             var expectedStatus = requestNumber < 60
@@ -91,7 +91,7 @@ public sealed class GetEnrollmentCardEndpointTests
         string enrollmentStatus = EnrollmentStatuses.Active,
         bool isClassCancelled = false)
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 7,
             validUntil: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(40),
             capacity: 12,

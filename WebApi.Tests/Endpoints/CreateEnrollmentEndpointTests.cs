@@ -14,10 +14,10 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_CreatesEnrollmentAndConsumesPassVisits()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(passVisits: 5);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        using var response = await ApiTestSupport.PostEnrollmentAsync(
             client,
             scenario.ClassId,
             seats: 2,
@@ -32,9 +32,9 @@ public sealed class CreateEnrollmentEndpointTests
         Assert.AreEqual("active", result.GetProperty("status").GetString());
         Assert.IsTrue(result.GetProperty("createdAt").GetDateTime() <= DateTime.UtcNow);
 
-        var savedEnrollment = await EnrollmentApiTestSupport.WithDbAsync(
+        var savedEnrollment = await ApiTestSupport.WithDbAsync(
             async db => await db.Enrollments.FindAsync(enrollmentId));
-        var savedPass = await EnrollmentApiTestSupport.WithDbAsync(
+        var savedPass = await ApiTestSupport.WithDbAsync(
             async db => await db.Passes.SingleAsync(x => x.UserId == scenario.UserId));
 
         Assert.IsNotNull(savedEnrollment);
@@ -48,11 +48,11 @@ public sealed class CreateEnrollmentEndpointTests
     public async Task PostEnrollment_ReusingKeyAfterEnrollmentChangesReturnsInitialEnrollmentState()
     {
         const int initialSeats = 2;
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(passVisits: 5);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var idempotencyKey = Guid.NewGuid().ToString("N");
 
-        using var firstResponse = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        using var firstResponse = await ApiTestSupport.PostEnrollmentAsync(
             client,
             scenario.ClassId,
             initialSeats,
@@ -64,7 +64,7 @@ public sealed class CreateEnrollmentEndpointTests
         Assert.AreEqual(initialSeats, firstBody.RootElement.GetProperty("seats").GetInt32());
         Assert.AreEqual(EnrollmentStatuses.Active, firstBody.RootElement.GetProperty("status").GetString());
 
-        await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        await ApiTestSupport.WithDbAsync(async db =>
         {
             var enrollment = await db.Enrollments.SingleAsync(x => x.Id == originalId);
             enrollment.Seats = 1;
@@ -74,7 +74,7 @@ public sealed class CreateEnrollmentEndpointTests
             return true;
         });
 
-        using var replayResponse = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        using var replayResponse = await ApiTestSupport.PostEnrollmentAsync(
             client,
             scenario.ClassId,
             initialSeats,
@@ -89,7 +89,7 @@ public sealed class CreateEnrollmentEndpointTests
         Assert.AreEqual(EnrollmentStatuses.Active, replay.GetProperty("status").GetString());
         Assert.AreEqual(originalCreatedAt, replay.GetProperty("createdAt").GetDateTime());
 
-        var state = await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        var state = await ApiTestSupport.WithDbAsync(async db =>
         {
             var entries = await db.Enrollments.Where(x => x.UserId == scenario.UserId).ToListAsync();
             var pass = await db.Passes.SingleAsync(x => x.UserId == scenario.UserId);
@@ -104,8 +104,8 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithoutIdempotencyKey_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         using var response = await client.PostAsJsonAsync(
             "/enrollments",
             new { classId = scenario.ClassId, seats = 1 });
@@ -116,8 +116,8 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithoutJwt_ReturnsUnauthorized()
     {
-        using var client = EnrollmentApiTestSupport.Factory.CreateClient();
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        using var client = ApiTestSupport.Factory.CreateClient();
+        using var response = await ApiTestSupport.PostEnrollmentAsync(
             client,
             classId: 1,
             seats: 1,
@@ -129,9 +129,9 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithoutClassId_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments", "{\"seats\":1}", Guid.NewGuid().ToString("N"));
         using var response = await client.SendAsync(request);
 
@@ -141,9 +141,9 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithoutSeats_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments", "{\"classId\":123}", Guid.NewGuid().ToString("N"));
         using var response = await client.SendAsync(request);
 
@@ -155,9 +155,9 @@ public sealed class CreateEnrollmentEndpointTests
     [DataRow("   ")]
     public async Task PostEnrollment_WithEmptyOrWhitespaceIdempotencyKey_ReturnsBadRequest(string key)
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments",
             JsonSerializer.Serialize(new { classId = scenario.ClassId, seats = 1 }),
             key);
@@ -169,9 +169,9 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithMalformedJson_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments", "{", Guid.NewGuid().ToString("N"));
         using var response = await client.SendAsync(request);
 
@@ -181,9 +181,9 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithInvalidFieldType_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments",
             "{\"classId\":\"not-a-number\",\"seats\":1}",
             Guid.NewGuid().ToString("N"));
@@ -195,9 +195,9 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithNonPositiveSeats_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var response = await ApiTestSupport.PostEnrollmentAsync(
             client,
             scenario.ClassId,
             seats: 0,
@@ -209,9 +209,9 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WithNonexistentClass_ReturnsNotFound()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var response = await ApiTestSupport.PostEnrollmentAsync(
             client,
             long.MaxValue,
             seats: 1,
@@ -223,33 +223,33 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WhenPassIsExhausted_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 0);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(passVisits: 0);
         await AssertConflictAsync(scenario, PassErrors.PassExhausted.Code);
     }
 
     [TestMethod]
     public async Task PostEnrollment_WhenPassIsExpired_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(validUntil: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
+        var scenario = await ApiTestSupport.CreateScenarioAsync(validUntil: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
         await AssertConflictAsync(scenario, PassErrors.PassExpired.Code);
     }
 
     [TestMethod]
     public async Task PostEnrollment_WhenClassHasNoCapacity_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(capacity: 1);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(capacity: 1);
         await AssertConflictAsync(scenario, ClassErrors.CapacityExceeded.Code, seats: 2);
     }
 
     [TestMethod]
     public async Task PostEnrollment_ConcurrentBookingsCannotOverdrawOnePassAcrossClasses()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 3, capacity: 10);
-        var anotherClassId = await EnrollmentApiTestSupport.CreateClassAsync(capacity: 10);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(passVisits: 3, capacity: 10);
+        var anotherClassId = await ApiTestSupport.CreateClassAsync(capacity: 10);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
         var requests = Enumerable.Range(0, 8)
-            .Select(index => EnrollmentApiTestSupport.PostEnrollmentAsync(
+            .Select(index => ApiTestSupport.PostEnrollmentAsync(
                 client,
                 index % 2 == 0 ? scenario.ClassId : anotherClassId,
                 seats: 2,
@@ -275,7 +275,7 @@ public sealed class CreateEnrollmentEndpointTests
                 response.Dispose();
         }
 
-        var state = await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        var state = await ApiTestSupport.WithDbAsync(async db =>
         {
             var pass = await db.Passes.SingleAsync(x => x.UserId == scenario.UserId);
             var bookings = await db.Enrollments
@@ -295,19 +295,19 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_ConcurrentBookingsCannotOverbookOneClassAcrossUsers()
     {
-        var first = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5, capacity: 3);
+        var first = await ApiTestSupport.CreateScenarioAsync(passVisits: 5, capacity: 3);
         var otherUsers = new List<EnrollmentScenario> { first };
         for (var index = 0; index < 7; index++)
-            otherUsers.Add(await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5));
+            otherUsers.Add(await ApiTestSupport.CreateScenarioAsync(passVisits: 5));
 
         var clients = new List<HttpClient>();
         try
         {
             foreach (var user in otherUsers)
-                clients.Add(await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(user.Email));
+                clients.Add(await ApiTestSupport.CreateAuthenticatedClientAsync(user.Email));
 
             var responses = await Task.WhenAll(clients.Select(client =>
-                EnrollmentApiTestSupport.PostEnrollmentAsync(
+                ApiTestSupport.PostEnrollmentAsync(
                     client,
                     first.ClassId,
                     seats: 2,
@@ -337,7 +337,7 @@ public sealed class CreateEnrollmentEndpointTests
                 client.Dispose();
         }
 
-        var state = await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        var state = await ApiTestSupport.WithDbAsync(async db =>
         {
             var userIds = otherUsers.Select(x => x.UserId).ToArray();
             var passes = await db.Passes.Where(x => userIds.Contains(x.UserId)).ToListAsync();
@@ -355,30 +355,30 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_WhenClassHasStarted_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(startsAt: DateTime.UtcNow.AddMinutes(-2));
+        var scenario = await ApiTestSupport.CreateScenarioAsync(startsAt: DateTime.UtcNow.AddMinutes(-2));
         await AssertConflictAsync(scenario, ClassErrors.ClassStarted.Code);
     }
 
     [TestMethod]
     public async Task PostEnrollment_WhenClassIsCancelled_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(isClassCancelled: true);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(isClassCancelled: true);
         await AssertConflictAsync(scenario, ClassErrors.ClassCancelled.Code);
     }
 
     [TestMethod]
     public async Task PostEnrollment_ReusingKeyWithDifferentPayload_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(passVisits: 5);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var key = Guid.NewGuid().ToString("N");
 
-        using var first = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        using var first = await ApiTestSupport.PostEnrollmentAsync(
             client,
             scenario.ClassId,
             seats: 1,
             idempotencyKey: key);
-        using var second = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        using var second = await ApiTestSupport.PostEnrollmentAsync(
             client,
             scenario.ClassId,
             seats: 2,
@@ -393,14 +393,14 @@ public sealed class CreateEnrollmentEndpointTests
     [TestMethod]
     public async Task PostEnrollment_ExceedingUserRateLimit_ReturnsTooManyRequests()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 100);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(passVisits: 100);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         HttpResponseMessage? lastResponse = null;
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
             lastResponse?.Dispose();
-            lastResponse = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+            lastResponse = await ApiTestSupport.PostEnrollmentAsync(
                 client,
                 scenario.ClassId,
                 seats: 1,
@@ -417,8 +417,8 @@ public sealed class CreateEnrollmentEndpointTests
 
     private async Task AssertConflictAsync(EnrollmentScenario scenario, string expectedReason, int seats = 1)
     {
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentAsync(
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var response = await ApiTestSupport.PostEnrollmentAsync(
             client,
             scenario.ClassId,
             seats,
@@ -428,9 +428,9 @@ public sealed class CreateEnrollmentEndpointTests
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
         Assert.AreEqual(expectedReason, body.RootElement.GetProperty("reason").GetString());
 
-        var hasEnrollment = await EnrollmentApiTestSupport.WithDbAsync(
+        var hasEnrollment = await ApiTestSupport.WithDbAsync(
             db => db.Enrollments.AnyAsync(x => x.UserId == scenario.UserId));
-        var remainingVisits = await EnrollmentApiTestSupport.WithDbAsync(
+        var remainingVisits = await ApiTestSupport.WithDbAsync(
             async db => (await db.Passes.SingleAsync(x => x.UserId == scenario.UserId)).RemainingVisits);
         Assert.IsFalse(hasEnrollment);
         Assert.AreEqual(scenario.InitialPassVisits, remainingVisits);

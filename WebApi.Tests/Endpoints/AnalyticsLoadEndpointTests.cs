@@ -12,9 +12,9 @@ public sealed class AnalyticsLoadEndpointTests
     public async Task GetLoad_ReturnsGroupedSortedLoadAndExcludesCancelledData()
     {
         var data = await CreateLoadDataAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(data.Admin.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(data.Admin.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetLoadAsync(
+        using var response = await ApiTestSupport.GetLoadAsync(
             client,
             LoadQuery(data.From, data.To));
 
@@ -33,9 +33,9 @@ public sealed class AnalyticsLoadEndpointTests
     public async Task GetLoad_FiltersByRoomAndUnknownRoomReturnsEmptyList()
     {
         var data = await CreateLoadDataAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(data.Admin.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(data.Admin.Email);
 
-        using var filteredResponse = await EnrollmentApiTestSupport.GetLoadAsync(
+        using var filteredResponse = await ApiTestSupport.GetLoadAsync(
             client,
             LoadQuery(data.From, data.To, data.RoomBId));
         Assert.AreEqual(HttpStatusCode.OK, filteredResponse.StatusCode);
@@ -44,7 +44,7 @@ public sealed class AnalyticsLoadEndpointTests
         Assert.AreEqual(1, filteredItems.Length);
         AssertLoadItem(filteredItems[0], data.From, data.RoomBId, "Studio B", classesCount: 1, totalCapacity: 5, bookedSeats: 2);
 
-        using var missingRoomResponse = await EnrollmentApiTestSupport.GetLoadAsync(
+        using var missingRoomResponse = await ApiTestSupport.GetLoadAsync(
             client,
             LoadQuery(data.From, data.To, long.MaxValue));
         Assert.AreEqual(HttpStatusCode.OK, missingRoomResponse.StatusCode);
@@ -56,9 +56,9 @@ public sealed class AnalyticsLoadEndpointTests
     public async Task GetLoad_AllowsSingleDatePeriod()
     {
         var data = await CreateLoadDataAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(data.Admin.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(data.Admin.Email);
 
-        using var response = await EnrollmentApiTestSupport.GetLoadAsync(
+        using var response = await ApiTestSupport.GetLoadAsync(
             client,
             LoadQuery(data.From, data.From));
 
@@ -73,11 +73,11 @@ public sealed class AnalyticsLoadEndpointTests
     [TestMethod]
     public async Task GetLoad_NonAdminUserReturnsForbidden()
     {
-        var user = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(user.Email);
+        var user = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(user.Email);
         var from = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(150));
 
-        using var response = await EnrollmentApiTestSupport.GetLoadAsync(client, LoadQuery(from, from.AddDays(1)));
+        using var response = await ApiTestSupport.GetLoadAsync(client, LoadQuery(from, from.AddDays(1)));
 
         Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -93,8 +93,8 @@ public sealed class AnalyticsLoadEndpointTests
     [DataRow("reversedPeriod")]
     public async Task GetLoad_WithInvalidParameters_ReturnsBadRequest(string invalidCase)
     {
-        var admin = await EnrollmentApiTestSupport.CreateScenarioAsync(role: "admin");
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(admin.Email);
+        var admin = await ApiTestSupport.CreateScenarioAsync(role: "admin");
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(admin.Email);
         var from = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(200));
         var to = from.AddDays(1);
         var fromValue = from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -112,7 +112,7 @@ public sealed class AnalyticsLoadEndpointTests
             _ => throw new ArgumentOutOfRangeException(nameof(invalidCase), invalidCase, null)
         };
 
-        using var response = await EnrollmentApiTestSupport.GetLoadAsync(client, query);
+        using var response = await ApiTestSupport.GetLoadAsync(client, query);
 
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode, invalidCase);
     }
@@ -120,14 +120,14 @@ public sealed class AnalyticsLoadEndpointTests
     [TestMethod]
     public async Task GetLoad_ExceedingUserRateLimit_ReturnsTooManyRequests()
     {
-        var admin = await EnrollmentApiTestSupport.CreateScenarioAsync(role: "admin");
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(admin.Email);
+        var admin = await ApiTestSupport.CreateScenarioAsync(role: "admin");
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(admin.Email);
         var from = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(250));
         var query = LoadQuery(from, from.AddDays(1));
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
-            using var response = await EnrollmentApiTestSupport.GetLoadAsync(client, query);
+            using var response = await ApiTestSupport.GetLoadAsync(client, query);
             var expectedStatus = requestNumber < 60
                 ? HttpStatusCode.OK
                 : HttpStatusCode.TooManyRequests;
@@ -137,40 +137,40 @@ public sealed class AnalyticsLoadEndpointTests
 
     private static async Task<LoadData> CreateLoadDataAsync()
     {
-        var admin = await EnrollmentApiTestSupport.CreateScenarioAsync(role: "admin");
-        var otherUser = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var admin = await ApiTestSupport.CreateScenarioAsync(role: "admin");
+        var otherUser = await ApiTestSupport.CreateScenarioAsync();
         var from = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(300 + admin.UserId * 3));
         var to = from.AddDays(2);
         var dayOne = UtcAt(from, 12);
         var dayTwo = UtcAt(from.AddDays(1), 12);
         var dayThree = UtcAt(to, 12);
-        var roomA = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var roomA = await ApiTestSupport.CreateScheduleClassAsync(
             "Studio A first class", dayOne, 8, "Studio A");
-        var roomASameDay = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var roomASameDay = await ApiTestSupport.CreateScheduleClassAsync(
             "Studio A second class", dayOne.AddHours(1), 4, "Studio A", roomId: roomA.RoomId);
-        var roomB = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var roomB = await ApiTestSupport.CreateScheduleClassAsync(
             "Studio B class", dayOne, 5, "Studio B");
-        var nextDay = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var nextDay = await ApiTestSupport.CreateScheduleClassAsync(
             "Studio A next day", dayTwo, 6, "Studio A", roomId: roomA.RoomId);
-        var atInclusiveEnd = await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        var atInclusiveEnd = await ApiTestSupport.CreateScheduleClassAsync(
             "Studio A on final date", dayThree, 7, "Studio A", roomId: roomA.RoomId);
-        await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        await ApiTestSupport.CreateScheduleClassAsync(
             "Cancelled class", dayTwo, 100, "Cancelled room", isCancelled: true);
-        await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        await ApiTestSupport.CreateScheduleClassAsync(
             "Before period", UtcAt(from.AddDays(-1), 23), 50, "Outside room");
-        await EnrollmentApiTestSupport.CreateScheduleClassAsync(
+        await ApiTestSupport.CreateScheduleClassAsync(
             "After period", UtcAt(to.AddDays(1), 0), 50, "Outside room");
 
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(admin.UserId, roomA.ClassId, 2);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(admin.UserId, roomA.ClassId, 1);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(admin.UserId, roomA.ClassId, 5, EnrollmentStatuses.Cancelled);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomA.ClassId, 2);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomASameDay.ClassId, 4, EnrollmentStatuses.Cancelled);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomASameDay.ClassId, 3);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomB.ClassId, 2);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(admin.UserId, nextDay.ClassId, 1);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, nextDay.ClassId, 4, EnrollmentStatuses.Cancelled);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(otherUser.UserId, atInclusiveEnd.ClassId, 2);
+        await ApiTestSupport.AddEnrollmentAsync(admin.UserId, roomA.ClassId, 2);
+        await ApiTestSupport.AddEnrollmentAsync(admin.UserId, roomA.ClassId, 1);
+        await ApiTestSupport.AddEnrollmentAsync(admin.UserId, roomA.ClassId, 5, EnrollmentStatuses.Cancelled);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomA.ClassId, 2);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomASameDay.ClassId, 4, EnrollmentStatuses.Cancelled);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomASameDay.ClassId, 3);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, roomB.ClassId, 2);
+        await ApiTestSupport.AddEnrollmentAsync(admin.UserId, nextDay.ClassId, 1);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, nextDay.ClassId, 4, EnrollmentStatuses.Cancelled);
+        await ApiTestSupport.AddEnrollmentAsync(otherUser.UserId, atInclusiveEnd.ClassId, 2);
 
         return new LoadData(admin, from, to, roomA.RoomId, roomB.RoomId);
     }

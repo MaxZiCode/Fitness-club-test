@@ -14,14 +14,14 @@ public sealed class CancelEnrollmentEndpointTests
     [TestMethod]
     public async Task CancelEnrollment_BeyondConfiguredRefundCutoffRefundsAllVisitsAndFreesSeats()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 3,
             capacity: 4,
             startsAt: StartsAtBeyondRefundCutoff(),
             enrollmentSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
+        using var response = await ApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -36,14 +36,14 @@ public sealed class CancelEnrollmentEndpointTests
     [TestMethod]
     public async Task CancelEnrollment_BeforeConfiguredRefundCutoffFreesSeatsWithoutRefund()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 3,
             capacity: 4,
             startsAt: StartsAtBeforeRefundCutoff(),
             enrollmentSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
+        using var response = await ApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -58,15 +58,15 @@ public sealed class CancelEnrollmentEndpointTests
     [TestMethod]
     public async Task CancelEnrollment_CancelledClassAllowsCancellationAfterStartAndRefundsVisits()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 3,
             capacity: 4,
             startsAt: DateTime.UtcNow.AddHours(-1),
             isClassCancelled: true,
             enrollmentSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
+        using var response = await ApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -80,13 +80,13 @@ public sealed class CancelEnrollmentEndpointTests
     [TestMethod]
     public async Task CancelEnrollment_WhenClassStartedAndNotCancelledReturnsConflict()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 3,
             startsAt: DateTime.UtcNow.AddMinutes(-1),
             enrollmentSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
+        using var response = await ApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -100,16 +100,16 @@ public sealed class CancelEnrollmentEndpointTests
     [TestMethod]
     public async Task CancelEnrollment_RepeatedCallReturnsSameResultWithoutRefundingTwice()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 3,
             startsAt: StartsAtBeyondRefundCutoff(),
             enrollmentSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var firstResponse = await EnrollmentApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var firstResponse = await ApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
         Assert.AreEqual(HttpStatusCode.OK, firstResponse.StatusCode);
         using var firstBody = await JsonDocument.ParseAsync(await firstResponse.Content.ReadAsStreamAsync());
 
-        using var repeatedResponse = await EnrollmentApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
+        using var repeatedResponse = await ApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, repeatedResponse.StatusCode);
         using var repeatedBody = await JsonDocument.ParseAsync(await repeatedResponse.Content.ReadAsStreamAsync());
@@ -126,13 +126,13 @@ public sealed class CancelEnrollmentEndpointTests
     [TestMethod]
     public async Task CancelEnrollment_NonexistentOrOtherUsersEnrollmentReturnsNotFound()
     {
-        var owner = await EnrollmentApiTestSupport.CreateScenarioAsync(enrollmentSeats: 1);
-        var otherUser = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var ownerClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(owner.Email);
-        using var otherClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
+        var owner = await ApiTestSupport.CreateScenarioAsync(enrollmentSeats: 1);
+        var otherUser = await ApiTestSupport.CreateScenarioAsync();
+        using var ownerClient = await ApiTestSupport.CreateAuthenticatedClientAsync(owner.Email);
+        using var otherClient = await ApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
 
-        using var foreignResponse = await EnrollmentApiTestSupport.CancelEnrollmentAsync(otherClient, owner.EnrollmentId);
-        using var missingResponse = await EnrollmentApiTestSupport.CancelEnrollmentAsync(otherClient, long.MaxValue);
+        using var foreignResponse = await ApiTestSupport.CancelEnrollmentAsync(otherClient, owner.EnrollmentId);
+        using var missingResponse = await ApiTestSupport.CancelEnrollmentAsync(otherClient, long.MaxValue);
 
         Assert.AreEqual(HttpStatusCode.NotFound, foreignResponse.StatusCode);
         Assert.AreEqual(HttpStatusCode.NotFound, missingResponse.StatusCode);
@@ -146,23 +146,23 @@ public sealed class CancelEnrollmentEndpointTests
     {
         const int capacity = 10;
         const int currentUsersBookingSeats = 8;
-        var owner = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var owner = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 0,
             capacity: capacity,
             startsAt: StartsAtBeyondRefundCutoff(),
             enrollmentSeats: currentUsersBookingSeats);
-        var occupancyOwner = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var tooLarge = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var medium = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var skippedForRemainingCapacity = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var finalFit = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(occupancyOwner.UserId, owner.ClassId, seats: 2);
+        var occupancyOwner = await ApiTestSupport.CreateScenarioAsync();
+        var tooLarge = await ApiTestSupport.CreateScenarioAsync();
+        var medium = await ApiTestSupport.CreateScenarioAsync();
+        var skippedForRemainingCapacity = await ApiTestSupport.CreateScenarioAsync();
+        var finalFit = await ApiTestSupport.CreateScenarioAsync();
+        await ApiTestSupport.AddEnrollmentAsync(occupancyOwner.UserId, owner.ClassId, seats: 2);
 
-        using var ownerClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(owner.Email);
-        using var tooLargeClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(tooLarge.Email);
-        using var mediumClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(medium.Email);
-        using var skippedClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(skippedForRemainingCapacity.Email);
-        using var finalFitClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(finalFit.Email);
+        using var ownerClient = await ApiTestSupport.CreateAuthenticatedClientAsync(owner.Email);
+        using var tooLargeClient = await ApiTestSupport.CreateAuthenticatedClientAsync(tooLarge.Email);
+        using var mediumClient = await ApiTestSupport.CreateAuthenticatedClientAsync(medium.Email);
+        using var skippedClient = await ApiTestSupport.CreateAuthenticatedClientAsync(skippedForRemainingCapacity.Email);
+        using var finalFitClient = await ApiTestSupport.CreateAuthenticatedClientAsync(finalFit.Email);
 
         var ownerWaitlistId = await JoinWaitlistAsync(ownerClient, owner.ClassId, seats: 2);
         var tooLargeWaitlistId = await JoinWaitlistAsync(tooLargeClient, owner.ClassId, seats: 9);
@@ -170,7 +170,7 @@ public sealed class CancelEnrollmentEndpointTests
         var skippedWaitlistId = await JoinWaitlistAsync(skippedClient, owner.ClassId, seats: 3);
         var finalFitWaitlistId = await JoinWaitlistAsync(finalFitClient, owner.ClassId, seats: 1);
 
-        using var response = await EnrollmentApiTestSupport.CancelEnrollmentAsync(ownerClient, owner.EnrollmentId);
+        using var response = await ApiTestSupport.CancelEnrollmentAsync(ownerClient, owner.EnrollmentId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
@@ -216,13 +216,13 @@ public sealed class CancelEnrollmentEndpointTests
     public async Task CancelEnrollment_ConcurrentCancellationsForSameClassPromoteWaitersWithoutOverbooking()
     {
         const int seatsPerEnrollment = 5;
-        var firstOwner = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var firstOwner = await ApiTestSupport.CreateScenarioAsync(
             passVisits: seatsPerEnrollment,
             capacity: seatsPerEnrollment * 2,
             startsAt: DateTime.UtcNow.AddDays(1),
             enrollmentSeats: seatsPerEnrollment);
-        var secondOwner = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: seatsPerEnrollment);
-        var secondEnrollmentId = await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        var secondOwner = await ApiTestSupport.CreateScenarioAsync(passVisits: seatsPerEnrollment);
+        var secondEnrollmentId = await ApiTestSupport.WithDbAsync(async db =>
         {
             var enrollment = new Enrollment
             {
@@ -239,19 +239,19 @@ public sealed class CancelEnrollmentEndpointTests
             return enrollment.Id;
         });
 
-        var firstWaiter = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: seatsPerEnrollment);
-        var secondWaiter = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: seatsPerEnrollment);
-        using var firstOwnerClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(firstOwner.Email);
-        using var secondOwnerClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(secondOwner.Email);
-        using var firstWaiterClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(firstWaiter.Email);
-        using var secondWaiterClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(secondWaiter.Email);
+        var firstWaiter = await ApiTestSupport.CreateScenarioAsync(passVisits: seatsPerEnrollment);
+        var secondWaiter = await ApiTestSupport.CreateScenarioAsync(passVisits: seatsPerEnrollment);
+        using var firstOwnerClient = await ApiTestSupport.CreateAuthenticatedClientAsync(firstOwner.Email);
+        using var secondOwnerClient = await ApiTestSupport.CreateAuthenticatedClientAsync(secondOwner.Email);
+        using var firstWaiterClient = await ApiTestSupport.CreateAuthenticatedClientAsync(firstWaiter.Email);
+        using var secondWaiterClient = await ApiTestSupport.CreateAuthenticatedClientAsync(secondWaiter.Email);
 
         var firstWaitlistId = await JoinWaitlistAsync(firstWaiterClient, firstOwner.ClassId, seatsPerEnrollment);
         var secondWaitlistId = await JoinWaitlistAsync(secondWaiterClient, firstOwner.ClassId, seatsPerEnrollment);
 
         var cancellationResponses = await Task.WhenAll(
-            EnrollmentApiTestSupport.CancelEnrollmentAsync(firstOwnerClient, firstOwner.EnrollmentId),
-            EnrollmentApiTestSupport.CancelEnrollmentAsync(secondOwnerClient, secondEnrollmentId));
+            ApiTestSupport.CancelEnrollmentAsync(firstOwnerClient, firstOwner.EnrollmentId),
+            ApiTestSupport.CancelEnrollmentAsync(secondOwnerClient, secondEnrollmentId));
         try
         {
             foreach (var response in cancellationResponses)
@@ -267,7 +267,7 @@ public sealed class CancelEnrollmentEndpointTests
                 response.Dispose();
         }
 
-        var state = await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        var state = await ApiTestSupport.WithDbAsync(async db =>
         {
             var enrollments = await db.Enrollments
                 .Where(enrollment => enrollment.ClassId == firstOwner.ClassId)
@@ -312,14 +312,14 @@ public sealed class CancelEnrollmentEndpointTests
     [TestMethod]
     public async Task CancelEnrollment_ExceedingUserRateLimitReturnsTooManyRequests()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(enrollmentSeats: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(enrollmentSeats: 1);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         HttpResponseMessage? lastResponse = null;
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
             lastResponse?.Dispose();
-            lastResponse = await EnrollmentApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
+            lastResponse = await ApiTestSupport.CancelEnrollmentAsync(client, scenario.EnrollmentId);
             if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
                 break;
         }
@@ -331,7 +331,7 @@ public sealed class CancelEnrollmentEndpointTests
 
     private static async Task<long> JoinWaitlistAsync(HttpClient client, long classId, int seats)
     {
-        using var response = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var response = await ApiTestSupport.PostWaitlistAsync(
             client,
             classId,
             seats,
@@ -348,7 +348,7 @@ public sealed class CancelEnrollmentEndpointTests
         DateTime.UtcNow.Add(RefundCutoff - CutoffMargin);
 
     private static TimeSpan RefundCutoff =>
-        EnrollmentApiTestSupport.Factory.Services
+        ApiTestSupport.Factory.Services
             .GetRequiredService<IOptions<EnrollmentCancellationOptions>>()
             .Value.RefundCutoff;
 
@@ -363,7 +363,7 @@ public sealed class CancelEnrollmentEndpointTests
     }
 
     private static async Task<EnrollmentState> GetStateAsync(EnrollmentScenario scenario) =>
-        await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        await ApiTestSupport.WithDbAsync(async db =>
         {
             var enrollments = await db.Enrollments
                 .Where(enrollment => enrollment.UserId == scenario.UserId && enrollment.ClassId == scenario.ClassId)
@@ -376,7 +376,7 @@ public sealed class CancelEnrollmentEndpointTests
         });
 
     private static async Task<ClassState> GetClassStateAsync(long classId, long ownerUserId) =>
-        await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        await ApiTestSupport.WithDbAsync(async db =>
         {
             var waitlistEntries = await db.WaitlistEntries
                 .Where(entry => entry.ClassId == classId)

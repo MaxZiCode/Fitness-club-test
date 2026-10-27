@@ -11,19 +11,19 @@ public sealed class CancelWaitlistEndpointTests
     [TestMethod]
     public async Task CancelWaitlist_CancelsOwnedEntryAndReturnsItsId()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var waitlistId = await JoinWaitlistAsync(client, classId);
 
-        using var response = await EnrollmentApiTestSupport.CancelWaitlistAsync(client, waitlistId);
+        using var response = await ApiTestSupport.CancelWaitlistAsync(client, waitlistId);
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
         Assert.AreEqual(waitlistId, body.RootElement.GetProperty("id").GetInt64());
         Assert.AreEqual(WaitlistEntryStatuses.Cancelled, body.RootElement.GetProperty("status").GetString());
 
-        var savedEntry = await EnrollmentApiTestSupport.WithDbAsync(
+        var savedEntry = await ApiTestSupport.WithDbAsync(
             db => db.WaitlistEntries.SingleAsync(entry => entry.Id == waitlistId));
         Assert.AreEqual(WaitlistEntryStatuses.Cancelled, savedEntry.Status);
     }
@@ -31,18 +31,18 @@ public sealed class CancelWaitlistEndpointTests
     [TestMethod]
     public async Task CancelWaitlist_RepeatedCallReturnsSameCancelledResultWithoutChangingEntry()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var waitlistId = await JoinWaitlistAsync(client, classId);
 
-        using var firstResponse = await EnrollmentApiTestSupport.CancelWaitlistAsync(client, waitlistId);
+        using var firstResponse = await ApiTestSupport.CancelWaitlistAsync(client, waitlistId);
         using var firstBody = await JsonDocument.ParseAsync(await firstResponse.Content.ReadAsStreamAsync());
         Assert.AreEqual(HttpStatusCode.OK, firstResponse.StatusCode);
-        var firstCreatedAt = await EnrollmentApiTestSupport.WithDbAsync(
+        var firstCreatedAt = await ApiTestSupport.WithDbAsync(
             async db => (await db.WaitlistEntries.SingleAsync(entry => entry.Id == waitlistId)).CreatedAt);
 
-        using var repeatedResponse = await EnrollmentApiTestSupport.CancelWaitlistAsync(client, waitlistId);
+        using var repeatedResponse = await ApiTestSupport.CancelWaitlistAsync(client, waitlistId);
 
         Assert.AreEqual(HttpStatusCode.OK, repeatedResponse.StatusCode);
         using var repeatedBody = await JsonDocument.ParseAsync(await repeatedResponse.Content.ReadAsStreamAsync());
@@ -50,7 +50,7 @@ public sealed class CancelWaitlistEndpointTests
         Assert.AreEqual(firstBody.RootElement.GetProperty("status").GetString(), repeatedBody.RootElement.GetProperty("status").GetString());
         Assert.AreEqual(WaitlistEntryStatuses.Cancelled, repeatedBody.RootElement.GetProperty("status").GetString());
 
-        var entries = await EnrollmentApiTestSupport.WithDbAsync(
+        var entries = await ApiTestSupport.WithDbAsync(
             db => db.WaitlistEntries.Where(entry => entry.Id == waitlistId).ToListAsync());
         Assert.AreEqual(1, entries.Count);
         Assert.AreEqual(WaitlistEntryStatuses.Cancelled, entries[0].Status);
@@ -60,19 +60,19 @@ public sealed class CancelWaitlistEndpointTests
     [TestMethod]
     public async Task CancelWaitlist_NonexistentOrOtherUsersEntryReturnsNotFound()
     {
-        var owner = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var otherUser = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var owner = await ApiTestSupport.CreateScenarioAsync();
+        var otherUser = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var ownerClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(owner.Email);
-        using var otherClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
+        using var ownerClient = await ApiTestSupport.CreateAuthenticatedClientAsync(owner.Email);
+        using var otherClient = await ApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
         var ownedWaitlistId = await JoinWaitlistAsync(ownerClient, classId);
 
-        using var foreignResponse = await EnrollmentApiTestSupport.CancelWaitlistAsync(otherClient, ownedWaitlistId);
-        using var missingResponse = await EnrollmentApiTestSupport.CancelWaitlistAsync(otherClient, long.MaxValue);
+        using var foreignResponse = await ApiTestSupport.CancelWaitlistAsync(otherClient, ownedWaitlistId);
+        using var missingResponse = await ApiTestSupport.CancelWaitlistAsync(otherClient, long.MaxValue);
 
         Assert.AreEqual(HttpStatusCode.NotFound, foreignResponse.StatusCode);
         Assert.AreEqual(HttpStatusCode.NotFound, missingResponse.StatusCode);
-        var status = await EnrollmentApiTestSupport.WithDbAsync(
+        var status = await ApiTestSupport.WithDbAsync(
             async db => (await db.WaitlistEntries.SingleAsync(entry => entry.Id == ownedWaitlistId)).Status);
         Assert.AreEqual(WaitlistEntryStatuses.Waiting, status);
     }
@@ -80,23 +80,23 @@ public sealed class CancelWaitlistEndpointTests
     [TestMethod]
     public async Task CancelWaitlist_RemovedUserIsNotPromotedAndRemainingQueueMovesUp()
     {
-        var bookingOwner = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var bookingOwner = await ApiTestSupport.CreateScenarioAsync(
             capacity: 1,
             enrollmentSeats: 1);
-        var firstWaiter = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var secondWaiter = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var thirdWaiter = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var bookingOwnerClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(bookingOwner.Email);
-        using var firstWaiterClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(firstWaiter.Email);
-        using var secondWaiterClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(secondWaiter.Email);
-        using var thirdWaiterClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(thirdWaiter.Email);
+        var firstWaiter = await ApiTestSupport.CreateScenarioAsync();
+        var secondWaiter = await ApiTestSupport.CreateScenarioAsync();
+        var thirdWaiter = await ApiTestSupport.CreateScenarioAsync();
+        using var bookingOwnerClient = await ApiTestSupport.CreateAuthenticatedClientAsync(bookingOwner.Email);
+        using var firstWaiterClient = await ApiTestSupport.CreateAuthenticatedClientAsync(firstWaiter.Email);
+        using var secondWaiterClient = await ApiTestSupport.CreateAuthenticatedClientAsync(secondWaiter.Email);
+        using var thirdWaiterClient = await ApiTestSupport.CreateAuthenticatedClientAsync(thirdWaiter.Email);
 
         var firstWaitlistId = await JoinWaitlistAsync(firstWaiterClient, bookingOwner.ClassId);
         var secondWaitlistId = await JoinWaitlistAsync(secondWaiterClient, bookingOwner.ClassId);
-        using (var response = await EnrollmentApiTestSupport.CancelWaitlistAsync(firstWaiterClient, firstWaitlistId))
+        using (var response = await ApiTestSupport.CancelWaitlistAsync(firstWaiterClient, firstWaitlistId))
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
 
-        using var thirdJoinResponse = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var thirdJoinResponse = await ApiTestSupport.PostWaitlistAsync(
             thirdWaiterClient,
             bookingOwner.ClassId,
             seats: 1,
@@ -106,12 +106,12 @@ public sealed class CancelWaitlistEndpointTests
         var thirdWaitlistId = thirdJoinBody.RootElement.GetProperty("id").GetInt64();
         Assert.AreEqual(2, thirdJoinBody.RootElement.GetProperty("position").GetInt32());
 
-        using var cancelBookingResponse = await EnrollmentApiTestSupport.CancelEnrollmentAsync(
+        using var cancelBookingResponse = await ApiTestSupport.CancelEnrollmentAsync(
             bookingOwnerClient,
             bookingOwner.EnrollmentId);
         Assert.AreEqual(HttpStatusCode.OK, cancelBookingResponse.StatusCode);
 
-        var state = await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        var state = await ApiTestSupport.WithDbAsync(async db =>
         {
             var entries = await db.WaitlistEntries
                 .Where(entry => entry.ClassId == bookingOwner.ClassId)
@@ -136,16 +136,16 @@ public sealed class CancelWaitlistEndpointTests
     [TestMethod]
     public async Task CancelWaitlist_ExceedingUserRateLimitReturnsTooManyRequests()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var waitlistId = await JoinWaitlistAsync(client, classId);
         HttpResponseMessage? lastResponse = null;
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
             lastResponse?.Dispose();
-            lastResponse = await EnrollmentApiTestSupport.CancelWaitlistAsync(client, waitlistId);
+            lastResponse = await ApiTestSupport.CancelWaitlistAsync(client, waitlistId);
             if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
                 break;
         }
@@ -157,15 +157,15 @@ public sealed class CancelWaitlistEndpointTests
 
     private static async Task<long> CreateFullClassAsync()
     {
-        var classId = await EnrollmentApiTestSupport.CreateClassAsync(capacity: 1);
-        var bookingOwner = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(bookingOwner.UserId, classId, seats: 1);
+        var classId = await ApiTestSupport.CreateClassAsync(capacity: 1);
+        var bookingOwner = await ApiTestSupport.CreateScenarioAsync();
+        await ApiTestSupport.AddEnrollmentAsync(bookingOwner.UserId, classId, seats: 1);
         return classId;
     }
 
     private static async Task<long> JoinWaitlistAsync(HttpClient client, long classId)
     {
-        using var response = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var response = await ApiTestSupport.PostWaitlistAsync(
             client,
             classId,
             seats: 1,

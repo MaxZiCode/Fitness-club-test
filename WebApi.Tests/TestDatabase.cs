@@ -64,7 +64,7 @@ public static class TestDatabase
             return;
         }
 
-        EnrollmentApiTestSupport.DisposeFactory();
+        ApiTestSupport.DisposeFactory();
         NpgsqlConnection.ClearAllPools();
 
         await using var connection = new NpgsqlConnection(ServerConnectionString);

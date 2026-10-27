@@ -15,11 +15,11 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_CreatesWaitingEntryAndReturnsPosition()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var response = await ApiTestSupport.PostWaitlistAsync(
             client, classId, seats: 2, idempotencyKey: NewKey());
 
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
@@ -32,7 +32,7 @@ public sealed class JoinWaitlistEndpointTests
         Assert.AreEqual(1, result.GetProperty("position").GetInt32());
         Assert.IsTrue(result.GetProperty("createdAt").GetDateTime() <= DateTime.UtcNow);
 
-        var saved = await EnrollmentApiTestSupport.WithDbAsync(
+        var saved = await ApiTestSupport.WithDbAsync(
             db => db.WaitlistEntries.SingleAsync(entry => entry.Id == entryId));
         Assert.AreEqual(scenario.UserId, saved.UserId);
         Assert.AreEqual(classId, saved.ClassId);
@@ -44,11 +44,11 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_ExistingActiveEnrollmentDoesNotPreventWaiting()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync(scenario.UserId);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var response = await ApiTestSupport.PostWaitlistAsync(
             client, classId, seats: 1, idempotencyKey: NewKey());
 
         Assert.AreEqual(HttpStatusCode.Created, response.StatusCode);
@@ -59,17 +59,17 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_SecondUserGetsNextPositionAndSameKeyReplaysOriginalEntry()
     {
-        var first = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        var second = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var first = await ApiTestSupport.CreateScenarioAsync();
+        var second = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var firstClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(first.Email);
-        using var secondClient = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(second.Email);
+        using var firstClient = await ApiTestSupport.CreateAuthenticatedClientAsync(first.Email);
+        using var secondClient = await ApiTestSupport.CreateAuthenticatedClientAsync(second.Email);
         var firstKey = NewKey();
         var secondKey = NewKey();
 
-        using var firstResponse = await EnrollmentApiTestSupport.PostWaitlistAsync(firstClient, classId, 1, firstKey);
-        using var secondResponse = await EnrollmentApiTestSupport.PostWaitlistAsync(secondClient, classId, 3, secondKey);
-        using var replayResponse = await EnrollmentApiTestSupport.PostWaitlistAsync(secondClient, classId, 3, secondKey);
+        using var firstResponse = await ApiTestSupport.PostWaitlistAsync(firstClient, classId, 1, firstKey);
+        using var secondResponse = await ApiTestSupport.PostWaitlistAsync(secondClient, classId, 3, secondKey);
+        using var replayResponse = await ApiTestSupport.PostWaitlistAsync(secondClient, classId, 3, secondKey);
 
         Assert.AreEqual(HttpStatusCode.Created, firstResponse.StatusCode);
         Assert.AreEqual(HttpStatusCode.Created, secondResponse.StatusCode);
@@ -82,7 +82,7 @@ public sealed class JoinWaitlistEndpointTests
         Assert.AreEqual(secondBody.RootElement.GetProperty("id").GetInt64(), replayBody.RootElement.GetProperty("id").GetInt64());
         Assert.AreEqual(2, replayBody.RootElement.GetProperty("position").GetInt32());
 
-        var count = await EnrollmentApiTestSupport.WithDbAsync(
+        var count = await ApiTestSupport.WithDbAsync(
             db => db.WaitlistEntries.CountAsync(entry => entry.ClassId == classId));
         Assert.AreEqual(2, count);
     }
@@ -90,19 +90,19 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_ReusingKeyAfterEntryStatusChangesReturnsSameEntry()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var idempotencyKey = NewKey();
 
-        using var firstResponse = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var firstResponse = await ApiTestSupport.PostWaitlistAsync(
             client, classId, seats: 1, idempotencyKey);
         Assert.AreEqual(HttpStatusCode.Created, firstResponse.StatusCode);
         using var firstBody = await JsonDocument.ParseAsync(await firstResponse.Content.ReadAsStreamAsync());
         var entryId = firstBody.RootElement.GetProperty("id").GetInt64();
         var originalCreatedAt = firstBody.RootElement.GetProperty("createdAt").GetDateTime();
 
-        await EnrollmentApiTestSupport.WithDbAsync(async db =>
+        await ApiTestSupport.WithDbAsync(async db =>
         {
             var entry = await db.WaitlistEntries.SingleAsync(x => x.Id == entryId);
             entry.Status = WaitlistEntryStatuses.Cancelled;
@@ -110,7 +110,7 @@ public sealed class JoinWaitlistEndpointTests
             return true;
         });
 
-        using var replayResponse = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var replayResponse = await ApiTestSupport.PostWaitlistAsync(
             client, classId, seats: 1, idempotencyKey);
 
         Assert.AreEqual(HttpStatusCode.Created, replayResponse.StatusCode);
@@ -122,7 +122,7 @@ public sealed class JoinWaitlistEndpointTests
         Assert.AreEqual(1, replay.GetProperty("position").GetInt32());
         Assert.AreEqual(originalCreatedAt, replay.GetProperty("createdAt").GetDateTime());
 
-        var entries = await EnrollmentApiTestSupport.WithDbAsync(
+        var entries = await ApiTestSupport.WithDbAsync(
             db => db.WaitlistEntries.Where(x => x.ClassId == classId && x.UserId == scenario.UserId).ToListAsync());
         Assert.AreEqual(1, entries.Count);
         Assert.AreEqual(1, entries[0].Seats);
@@ -132,8 +132,8 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WhenSeatsAreAvailable_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(capacity: 4);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(capacity: 4);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
         await AssertConflictAsync(client, scenario.ClassId, seats: 1, WaitlistErrors.SeatsAvailable.Code);
     }
@@ -141,10 +141,10 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WhenUserIsAlreadyWaiting_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var first = await EnrollmentApiTestSupport.PostWaitlistAsync(client, classId, 1, NewKey());
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var first = await ApiTestSupport.PostWaitlistAsync(client, classId, 1, NewKey());
         Assert.AreEqual(HttpStatusCode.Created, first.StatusCode);
 
         await AssertConflictAsync(client, classId, seats: 2, WaitlistErrors.AlreadyWaiting.Code);
@@ -153,9 +153,9 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WhenClassHasStarted_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var scenario = await ApiTestSupport.CreateScenarioAsync(
             startsAt: DateTime.UtcNow.AddMinutes(-1), capacity: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
         await AssertConflictAsync(client, scenario.ClassId, seats: 1, ClassErrors.ClassStarted.Code);
     }
@@ -163,8 +163,8 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WhenClassIsCancelled_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(isClassCancelled: true, capacity: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(isClassCancelled: true, capacity: 1);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
         await AssertConflictAsync(client, scenario.ClassId, seats: 1, ClassErrors.ClassCancelled.Code);
     }
@@ -172,17 +172,17 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostEnrollment_ReusingKeyWithDifferentPayload_ReturnsConflictReason()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync(passVisits: 5);
+        var scenario = await ApiTestSupport.CreateScenarioAsync(passVisits: 5);
         var classId = await CreateFullClassAsync(scenario.UserId);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         var key = Guid.NewGuid().ToString("N");
 
-        using var first = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var first = await ApiTestSupport.PostWaitlistAsync(
             client,
             classId,
             seats: 1,
             idempotencyKey: key);
-        using var second = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var second = await ApiTestSupport.PostWaitlistAsync(
             client,
             classId,
             seats: 2,
@@ -197,10 +197,10 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WhenClassDoesNotExist_ReturnsNotFound()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var response = await ApiTestSupport.PostWaitlistAsync(
             client, long.MaxValue, seats: 1, idempotencyKey: NewKey());
 
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
@@ -209,8 +209,8 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WithoutIdempotencyKey_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         using var response = await client.PostAsJsonAsync(
             "/enrollments/waitlist",
             new { classId = scenario.ClassId, seats = 1 });
@@ -223,9 +223,9 @@ public sealed class JoinWaitlistEndpointTests
     [DataRow("   ")]
     public async Task PostWaitlist_WithEmptyOrWhitespaceIdempotencyKey_ReturnsBadRequest(string key)
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments/waitlist", JsonSerializer.Serialize(new { classId = scenario.ClassId, seats = 1 }), key);
         using var response = await client.SendAsync(request);
 
@@ -235,9 +235,9 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WithoutClassId_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments/waitlist", "{\"seats\":1}", NewKey());
         using var response = await client.SendAsync(request);
 
@@ -247,9 +247,9 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WithoutSeats_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             "/enrollments/waitlist", "{\"classId\":1}", NewKey());
         using var response = await client.SendAsync(request);
 
@@ -261,10 +261,10 @@ public sealed class JoinWaitlistEndpointTests
     [DataRow(-1)]
     public async Task PostWaitlist_WithNonPositiveSeats_ReturnsBadRequest(int seats)
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var response = await ApiTestSupport.PostWaitlistAsync(
             client, scenario.ClassId, seats, idempotencyKey: NewKey());
 
         Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
@@ -273,15 +273,15 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_WithMalformedJsonOrInvalidFieldType_ReturnsBadRequest()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var malformedRequest = EnrollmentApiTestSupport.CreateJsonRequest(
+        using var malformedRequest = ApiTestSupport.CreateJsonRequest(
             "/enrollments/waitlist", "{", NewKey());
         using var malformedResponse = await client.SendAsync(malformedRequest);
         Assert.AreEqual(HttpStatusCode.BadRequest, malformedResponse.StatusCode);
 
-        using var invalidTypeRequest = EnrollmentApiTestSupport.CreateJsonRequest(
+        using var invalidTypeRequest = ApiTestSupport.CreateJsonRequest(
             "/enrollments/waitlist", "{\"classId\":\"not-a-number\",\"seats\":1}", NewKey());
         using var invalidTypeResponse = await client.SendAsync(invalidTypeRequest);
         Assert.AreEqual(HttpStatusCode.BadRequest, invalidTypeResponse.StatusCode);
@@ -294,16 +294,16 @@ public sealed class JoinWaitlistEndpointTests
         var classId = await CreateFullClassAsync();
         var users = new List<EnrollmentScenario>();
         for (var index = 0; index < userCount; index++)
-            users.Add(await EnrollmentApiTestSupport.CreateScenarioAsync());
+            users.Add(await ApiTestSupport.CreateScenarioAsync());
 
         var clients = new List<HttpClient>();
         try
         {
             foreach (var user in users)
-                clients.Add(await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(user.Email));
+                clients.Add(await ApiTestSupport.CreateAuthenticatedClientAsync(user.Email));
 
             var responses = await Task.WhenAll(clients.Select(client =>
-                EnrollmentApiTestSupport.PostWaitlistAsync(client, classId, seats: 1, NewKey())));
+                ApiTestSupport.PostWaitlistAsync(client, classId, seats: 1, NewKey())));
             try
             {
                 foreach (var response in responses)
@@ -331,7 +331,7 @@ public sealed class JoinWaitlistEndpointTests
                 client.Dispose();
         }
 
-        var savedEntries = await EnrollmentApiTestSupport.WithDbAsync(
+        var savedEntries = await ApiTestSupport.WithDbAsync(
             db => db.WaitlistEntries
                 .Where(entry => entry.ClassId == classId && entry.Status == WaitlistEntryStatuses.Waiting)
                 .OrderBy(entry => entry.InitialPosition)
@@ -343,15 +343,15 @@ public sealed class JoinWaitlistEndpointTests
     [TestMethod]
     public async Task PostWaitlist_ExceedingUserRateLimit_ReturnsTooManyRequests()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
         var classId = await CreateFullClassAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         HttpResponseMessage? lastResponse = null;
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
             lastResponse?.Dispose();
-            lastResponse = await EnrollmentApiTestSupport.PostWaitlistAsync(client, classId, 1, NewKey());
+            lastResponse = await ApiTestSupport.PostWaitlistAsync(client, classId, 1, NewKey());
             if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
                 break;
         }
@@ -363,9 +363,9 @@ public sealed class JoinWaitlistEndpointTests
 
     private static async Task<long> CreateFullClassAsync(long? bookingUserId = null)
     {
-        var classId = await EnrollmentApiTestSupport.CreateClassAsync(capacity: 1);
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(
-            bookingUserId ?? (await EnrollmentApiTestSupport.CreateScenarioAsync()).UserId,
+        var classId = await ApiTestSupport.CreateClassAsync(capacity: 1);
+        await ApiTestSupport.AddEnrollmentAsync(
+            bookingUserId ?? (await ApiTestSupport.CreateScenarioAsync()).UserId,
             classId,
             seats: 1);
         return classId;
@@ -377,7 +377,7 @@ public sealed class JoinWaitlistEndpointTests
         int seats,
         string expectedReason)
     {
-        using var response = await EnrollmentApiTestSupport.PostWaitlistAsync(
+        using var response = await ApiTestSupport.PostWaitlistAsync(
             client, classId, seats, idempotencyKey: NewKey());
 
         Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode);

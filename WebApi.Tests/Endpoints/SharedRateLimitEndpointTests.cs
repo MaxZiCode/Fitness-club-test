@@ -15,40 +15,40 @@ public sealed class SharedRateLimitEndpointTests
     [TestMethod]
     public async Task AllEightEndpoints_ConsumeOneSharedPerUserRateLimit()
     {
-        var user = await EnrollmentApiTestSupport.CreateScenarioAsync(
+        var user = await ApiTestSupport.CreateScenarioAsync(
             passVisits: 1000,
             capacity: 1000,
             enrollmentSeats: 1,
             role: "admin");
-        var waitlistClassId = await EnrollmentApiTestSupport.CreateClassAsync(capacity: 1);
-        var occupancyOwner = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        await EnrollmentApiTestSupport.AddEnrollmentAsync(occupancyOwner.UserId, waitlistClassId, seats: 1);
+        var waitlistClassId = await ApiTestSupport.CreateClassAsync(capacity: 1);
+        var occupancyOwner = await ApiTestSupport.CreateScenarioAsync();
+        await ApiTestSupport.AddEnrollmentAsync(occupancyOwner.UserId, waitlistClassId, seats: 1);
         var waitlistEntryId = await CreateWaitingEntryAsync(user.UserId, waitlistClassId);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(user.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(user.Email);
 
-        var limit = EnrollmentApiTestSupport.Factory.Services
+        var limit = ApiTestSupport.Factory.Services
             .GetRequiredService<IOptions<ApiRateLimitOptions>>()
             .Value.RequestsPerMinute;
         Assert.IsTrue(limit >= 8, "The shared rate-limit test requires a limit of at least eight requests.");
 
         var from = DateTime.UtcNow.AddDays(-1);
         var to = from.AddDays(30);
-        var scheduleQuery = EnrollmentApiTestSupport.ScheduleQuery(from, to);
+        var scheduleQuery = ApiTestSupport.ScheduleQuery(from, to);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var loadQuery = $"?from={today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}" +
                         $"&to={today.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}";
         Func<Task<HttpResponseMessage>>[] endpointRequests =
         [
-            () => EnrollmentApiTestSupport.PostEnrollmentAsync(
+            () => ApiTestSupport.PostEnrollmentAsync(
                 client, user.ClassId, seats: 1, idempotencyKey: Guid.NewGuid().ToString("N")),
-            () => EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(client, user.EnrollmentId, seats: 1),
-            () => EnrollmentApiTestSupport.CancelEnrollmentAsync(client, user.EnrollmentId),
-            () => EnrollmentApiTestSupport.GetEnrollmentCardAsync(client, user.EnrollmentId),
-            () => EnrollmentApiTestSupport.PostWaitlistAsync(
+            () => ApiTestSupport.PostEnrollmentSeatsAsync(client, user.EnrollmentId, seats: 1),
+            () => ApiTestSupport.CancelEnrollmentAsync(client, user.EnrollmentId),
+            () => ApiTestSupport.GetEnrollmentCardAsync(client, user.EnrollmentId),
+            () => ApiTestSupport.PostWaitlistAsync(
                 client, waitlistClassId, seats: 1, idempotencyKey: Guid.NewGuid().ToString("N")),
-            () => EnrollmentApiTestSupport.CancelWaitlistAsync(client, waitlistEntryId),
-            () => EnrollmentApiTestSupport.GetScheduleAsync(client, scheduleQuery),
-            () => EnrollmentApiTestSupport.GetLoadAsync(client, loadQuery)
+            () => ApiTestSupport.CancelWaitlistAsync(client, waitlistEntryId),
+            () => ApiTestSupport.GetScheduleAsync(client, scheduleQuery),
+            () => ApiTestSupport.GetLoadAsync(client, loadQuery)
         ];
 
         for (var requestNumber = 0; requestNumber < limit; requestNumber++)
@@ -65,7 +65,7 @@ public sealed class SharedRateLimitEndpointTests
     }
 
     private static Task<long> CreateWaitingEntryAsync(long userId, long classId) =>
-        EnrollmentApiTestSupport.WithDbAsync(async db =>
+        ApiTestSupport.WithDbAsync(async db =>
         {
             var entry = new WaitlistEntry
             {

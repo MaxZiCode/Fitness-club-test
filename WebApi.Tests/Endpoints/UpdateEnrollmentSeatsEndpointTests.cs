@@ -13,9 +13,9 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_Increase_ReturnsFullEnrollmentCardAndConsumesDifference()
     {
         var scenario = await CreateBookedScenarioAsync(passVisits: 5, initialSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+        using var response = await ApiTestSupport.PostEnrollmentSeatsAsync(
             client,
             scenario.EnrollmentId,
             seats: 4);
@@ -50,9 +50,9 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
             passVisits: 0,
             validUntil: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1),
             initialSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+        using var response = await ApiTestSupport.PostEnrollmentSeatsAsync(
             client,
             scenario.EnrollmentId,
             seats: 1);
@@ -74,9 +74,9 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
             passVisits: 0,
             validUntil: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1),
             initialSeats: 2);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+        using var response = await ApiTestSupport.PostEnrollmentSeatsAsync(
             client,
             scenario.EnrollmentId,
             seats: 2);
@@ -95,9 +95,9 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_WithZeroSeats_ReturnsBadRequest()
     {
         var scenario = await CreateBookedScenarioAsync(initialSeats: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+        using var response = await ApiTestSupport.PostEnrollmentSeatsAsync(
             client,
             scenario.EnrollmentId,
             seats: 0);
@@ -109,8 +109,8 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_WithMissingSeats_ReturnsBadRequest()
     {
         var scenario = await CreateBookedScenarioAsync(initialSeats: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             $"/enrollments/{scenario.EnrollmentId}/seats",
             "{}");
         using var response = await client.SendAsync(request);
@@ -122,8 +122,8 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_WithMalformedJson_ReturnsBadRequest()
     {
         var scenario = await CreateBookedScenarioAsync(initialSeats: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             $"/enrollments/{scenario.EnrollmentId}/seats",
             "{");
         using var response = await client.SendAsync(request);
@@ -135,8 +135,8 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_WithInvalidSeatsType_ReturnsBadRequest()
     {
         var scenario = await CreateBookedScenarioAsync(initialSeats: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var request = EnrollmentApiTestSupport.CreateJsonRequest(
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var request = ApiTestSupport.CreateJsonRequest(
             $"/enrollments/{scenario.EnrollmentId}/seats",
             "{\"seats\":\"many\"}");
         using var response = await client.SendAsync(request);
@@ -147,10 +147,10 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     [TestMethod]
     public async Task UpdateSeats_ForMissingEnrollment_ReturnsNotFound()
     {
-        var scenario = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        var scenario = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+        using var response = await ApiTestSupport.PostEnrollmentSeatsAsync(
             client,
             long.MaxValue,
             seats: 1);
@@ -162,10 +162,10 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_ForAnotherUsersEnrollment_ReturnsNotFound()
     {
         var owner = await CreateBookedScenarioAsync(initialSeats: 1);
-        var otherUser = await EnrollmentApiTestSupport.CreateScenarioAsync();
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
+        var otherUser = await ApiTestSupport.CreateScenarioAsync();
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(otherUser.Email);
 
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+        using var response = await ApiTestSupport.PostEnrollmentSeatsAsync(
             client,
             owner.EnrollmentId,
             seats: 2);
@@ -228,13 +228,13 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
     public async Task UpdateSeats_ExceedingUserRateLimit_ReturnsTooManyRequests()
     {
         var scenario = await CreateBookedScenarioAsync(passVisits: 100, initialSeats: 1);
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
         HttpResponseMessage? lastResponse = null;
 
         for (var requestNumber = 0; requestNumber < 61; requestNumber++)
         {
             lastResponse?.Dispose();
-            lastResponse = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+            lastResponse = await ApiTestSupport.PostEnrollmentSeatsAsync(
                 client,
                 scenario.EnrollmentId,
                 seats: 1);
@@ -253,8 +253,8 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
         string expectedReason,
         int requestedSeats)
     {
-        using var client = await EnrollmentApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
-        using var response = await EnrollmentApiTestSupport.PostEnrollmentSeatsAsync(
+        using var client = await ApiTestSupport.CreateAuthenticatedClientAsync(scenario.Email);
+        using var response = await ApiTestSupport.PostEnrollmentSeatsAsync(
             client,
             scenario.EnrollmentId,
             requestedSeats);
@@ -276,7 +276,7 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
         bool isClassCancelled = false,
         int initialSeats = 2,
         string enrollmentStatus = EnrollmentStatuses.Active) =>
-        EnrollmentApiTestSupport.CreateScenarioAsync(
+        ApiTestSupport.CreateScenarioAsync(
             passVisits,
             validUntil,
             capacity,
@@ -286,7 +286,7 @@ public sealed class UpdateEnrollmentSeatsEndpointTests
             enrollmentStatus);
 
     private static Task<StoredEnrollmentState> GetStoredStateAsync(EnrollmentScenario scenario) =>
-        EnrollmentApiTestSupport.WithDbAsync(async db =>
+        ApiTestSupport.WithDbAsync(async db =>
         {
             var enrollment = await db.Enrollments.SingleAsync(x => x.Id == scenario.EnrollmentId);
             var pass = await db.Passes.SingleAsync(x => x.UserId == scenario.UserId);
